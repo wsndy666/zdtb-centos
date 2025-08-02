@@ -1,0 +1,382 @@
+{% extends "base.html" %}
+
+{% block title %}关于系统 - 智汇填报{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-info-circle me-2"></i>关于系统</h2>
+            </div>
+
+            <!-- 系统信息卡片 -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mx-auto">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">
+                                <i class="bi bi-gear-fill me-2"></i>智汇填报
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="mb-4">
+                                        <h5 class="text-primary">
+                                            <i class="bi bi-tag me-2"></i>系统版本
+                                        </h5>
+                                        <p class="fs-4 fw-bold text-success mb-1">v1.0.0</p>
+                                        <small class="text-muted">发布日期: 2025年7月</small>
+                                    </div>
+                                    
+                                    <div class="mb-4">
+                                        <h5 class="text-primary">
+                                            <i class="bi bi-code-slash me-2"></i>技术栈
+                                        </h5>
+                                        <div class="d-flex flex-wrap gap-2">
+                                            <span class="badge bg-primary">Python 3.8+</span>
+                                            <span class="badge bg-success">Flask</span>
+                                            <span class="badge bg-info">SQLite</span>
+                                            <span class="badge bg-warning text-dark">Bootstrap 5</span>
+                                            <span class="badge bg-secondary">jQuery</span>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="mb-4">
+                                        <h5 class="text-primary">
+                                            <i class="bi bi-person-badge me-2"></i>开发者信息
+                                        </h5>
+                                        <div class="card bg-light">
+                                            <div class="card-body">
+                                                <h6 class="card-title mb-2">
+                                                    <i class="bi bi-person-circle me-1"></i>开发团队
+                                                </h6>
+                                                <p class="card-text mb-2">
+                                                    <strong>主要开发者:</strong> 宋晓峰<br>
+                                                    <strong>项目负责人:</strong> 无<br>
+                                                    <strong>维护团队:</strong> 无
+                                                </p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 联系方式卡片 -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mx-auto">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-info text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-telephone me-2"></i>联系方式
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <div class="contact-item mb-3">
+                                        <h6 class="text-primary">
+                                            <i class="bi bi-envelope me-2"></i>技术支持邮箱
+                                        </h6>
+                                        <p class="mb-0">
+                                            <a href="mailto:dan758@139.com" class="text-decoration-none">
+                                                dan758@139.com
+                                            </a>
+                                        </p>
+                                    </div>
+                                    
+                                    <div class="contact-item mb-3">
+                                        <h6 class="text-primary">
+                                            <i class="bi bi-wechat me-2"></i>技术支持微信
+                                        </h6>
+                                        <small class="text-muted">扫码添加技术支持微信</small>
+                                    </div>
+                                </div>
+                                
+                                <div class="col-md-6">
+                                    <div class="text-center">
+                                        <img src="{{ url_for('static', filename='lx.jpg') }}" 
+                                             alt="技术支持微信二维码" 
+                                             class="img-fluid rounded shadow-sm" 
+                                             style="max-width: 200px; height: auto;">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 系统特性卡片 -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mx-auto">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-success text-white">
+                            <h5 class="mb-0">
+                                <i class="bi bi-star me-2"></i>系统特性
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <strong>智能模板管理</strong><br>
+                                            <small class="text-muted">支持Word、Excel模板自动解析</small>
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <strong>变量数据库</strong><br>
+                                            <small class="text-muted">一次定义，多模板复用</small>
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <strong>批量数据导入</strong><br>
+                                            <small class="text-muted">支持Excel批量导入项目数据</small>
+                                        </li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul class="list-unstyled">
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <strong>自动文件生成</strong><br>
+                                            <small class="text-muted">一键生成填充完整的报告文件</small>
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <strong>操作日志记录</strong><br>
+                                            <small class="text-muted">完整的操作历史追踪</small>
+                                        </li>
+                                        <li class="mb-2">
+                                            <i class="bi bi-check-circle text-success me-2"></i>
+                                            <strong>数据管理</strong><br>
+                                            <small class="text-muted">智能清理，防止系统拖慢</small>
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 激活状态卡片 -->
+            <div class="row mb-4">
+                <div class="col-lg-8 mx-auto">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-warning text-dark">
+                            <h5 class="mb-0">
+                                <i class="bi bi-key me-2"></i>软件激活状态
+                            </h5>
+                        </div>
+                        <div class="card-body">
+                            <div id="activation-status">
+                                {% if activation_status.activated %}
+                                    <div class="alert alert-success" role="alert">
+                                        <h6 class="alert-heading">
+                                            <i class="bi bi-check-circle me-2"></i>软件已激活
+                                        </h6>
+                                        <p class="mb-2">
+                                            <strong>用户信息：</strong>{{ activation_status.user_info or '未知用户' }}<br>
+                                            <strong>到期时间：</strong>{{ activation_status.expire_date }}<br>
+                                            <strong>剩余天数：</strong>{{ activation_status.days_remaining }} 天
+                                        </p>
+                                        {% if activation_status.days_remaining <= 30 %}
+                                            <hr>
+                                            <p class="mb-0 text-warning">
+                                                <i class="bi bi-exclamation-triangle me-1"></i>
+                                                软件即将到期，请及时续费！
+                                            </p>
+                                        {% endif %}
+                                    </div>
+                                {% else %}
+                                    <div class="alert alert-danger" role="alert">
+                                        <h6 class="alert-heading">
+                                            <i class="bi bi-x-circle me-2"></i>软件未激活
+                                        </h6>
+                                        <p class="mb-3">请输入有效的激活码来激活软件。</p>
+                                        
+                                        <div class="row">
+                                            <div class="col-md-8">
+                                                <div class="input-group">
+                                                    <input type="text" 
+                                                           class="form-control" 
+                                                           id="activation-code-input" 
+                                                           placeholder="请输入激活码（完整的Base64格式）"
+                                                           maxlength="500">
+                                                    <button class="btn btn-primary" 
+                                                            type="button" 
+                                                            id="activate-btn">
+                                                        <i class="bi bi-key me-1"></i>激活
+                                                    </button>
+                                                </div>
+                                                <small class="form-text text-muted mt-1">
+                                                    激活码由软件提供商提供，请确保激活码的准确性
+                                                </small>
+                                            </div>
+                                        </div>
+                                    </div>
+                                {% endif %}
+                            </div>
+                            
+                            <!-- 激活码说明 -->
+                            <div class="mt-3">
+                                <h6 class="text-primary">
+                                    <i class="bi bi-info-circle me-2"></i>激活说明
+                                </h6>
+                                <ul class="list-unstyled small text-muted">
+                                    <li><i class="bi bi-dot"></i> 激活码用于验证软件的合法使用权限</li>
+                                    <li><i class="bi bi-dot"></i> 每个激活码只能使用一次，请妥善保管</li>
+                                    <li><i class="bi bi-dot"></i> 如需购买或续费激活码，请联系技术支持</li>
+                                    <li><i class="bi bi-dot"></i> 激活码到期后，软件功能将受到限制</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 版权信息 -->
+            <div class="row">
+                <div class="col-lg-8 mx-auto">
+                    <div class="card border-0 bg-light">
+                        <div class="card-body text-center py-4">
+                            <p class="text-muted mb-2">
+                                <i class="bi bi-c-circle me-1"></i>
+                                Copyright © 2025 智汇填报. All rights reserved.
+                            </p>
+                            <p class="text-muted small mb-0">
+                                本系统旨在提高工作效率，简化报告生成流程。如有问题请联系技术支持。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 页面加载动画
+document.addEventListener('DOMContentLoaded', function() {
+    // 添加卡片进入动画
+    const cards = document.querySelectorAll('.card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        
+        card.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.6s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 100);
+    });
+    
+    // 激活码功能
+    const activateBtn = document.getElementById('activate-btn');
+    const activationInput = document.getElementById('activation-code-input');
+    
+    if (activateBtn && activationInput) {
+        // 激活按钮点击事件
+        activateBtn.addEventListener('click', function() {
+            const activationCode = activationInput.value.trim();
+            
+            if (!activationCode) {
+                showAlert('请输入激活码', 'warning');
+                return;
+            }
+            
+            // 显示加载状态
+            const originalText = activateBtn.innerHTML;
+            activateBtn.disabled = true;
+            activateBtn.innerHTML = '<i class="bi bi-hourglass-split me-1"></i>验证中...';
+            
+            // 发送激活请求
+            fetch('/api/activation/verify', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    activation_code: activationCode
+                })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    showAlert(data.message, 'success');
+                    // 刷新页面显示激活状态
+                    setTimeout(() => {
+                        location.reload();
+                    }, 2000);
+                } else {
+                    showAlert(data.message, 'danger');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                showAlert('网络错误，请稍后重试', 'danger');
+            })
+            .finally(() => {
+                // 恢复按钮状态
+                activateBtn.disabled = false;
+                activateBtn.innerHTML = originalText;
+            });
+        });
+        
+        // 回车键激活
+        activationInput.addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                activateBtn.click();
+            }
+        });
+        
+        // 输入格式化（保持原始格式，只移除多余空格）
+        activationInput.addEventListener('input', function(e) {
+            // 只移除首尾空格，保持激活码的原始格式
+            e.target.value = e.target.value.trim();
+        });
+    }
+    
+    // 显示提示信息
+    function showAlert(message, type) {
+        // 移除现有的提示
+        const existingAlert = document.querySelector('.temp-alert');
+        if (existingAlert) {
+            existingAlert.remove();
+        }
+        
+        // 创建新的提示
+        const alertDiv = document.createElement('div');
+        alertDiv.className = `alert alert-${type} temp-alert mt-3`;
+        alertDiv.innerHTML = `
+            <i class="bi bi-${type === 'success' ? 'check-circle' : type === 'warning' ? 'exclamation-triangle' : 'x-circle'} me-2"></i>
+            ${message}
+        `;
+        
+        // 插入到激活状态区域
+        const statusDiv = document.getElementById('activation-status');
+        statusDiv.appendChild(alertDiv);
+        
+        // 3秒后自动移除
+        setTimeout(() => {
+            if (alertDiv.parentNode) {
+                alertDiv.remove();
+            }
+        }, 5000);
+    }
+});
+</script>
+{% endblock %}
