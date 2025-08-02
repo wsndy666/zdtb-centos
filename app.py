@@ -2505,7 +2505,7 @@ def favicon():
 def open_browser():
     """延迟打开浏览器"""
     time.sleep(1.5)  # 等待服务器启动
-    webbrowser.open('http://localhost:5000')
+    webbrowser.open('http://localhost:8080')  # 修改端口号
 
 def shutdown_server():
     """优雅关闭服务器"""
@@ -2612,11 +2612,12 @@ if __name__ == '__main__':
         # 打包环境下减少日志输出但保持基本信息
         logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
-    # 根据环境设置调试模式
-    debug_mode = not is_packaged and not is_docker
+    # 从环境变量获取端口和调试模式设置
+    port = int(os.environ.get('PORT', 5000))
+    debug = os.environ.get('FLASK_ENV') != 'production'
     
     try:
-        app.run(debug=debug_mode, host='0.0.0.0', port=5000, threaded=True)
+        app.run(host='0.0.0.0', port=port, debug=debug)
     except KeyboardInterrupt:
         print("\n系统已退出")
     except Exception as e:
