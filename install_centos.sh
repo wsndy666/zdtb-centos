@@ -22,21 +22,62 @@ else
     exit 1
 fi
 
-# 更新系统
+# 更新系统并安装基础依赖
 echo "📦 更新系统包..."
 if [ "$CENTOS_VERSION" -ge 8 ]; then
+    # CentOS 8/9
     dnf update -y
     dnf groupinstall "Development Tools" -y
-    dnf install -y git wget curl python3 python3-pip python3-devel nginx firewalld
+    dnf install -y git wget curl nginx firewalld
+    
+    # 安装Python 3
+    dnf install -y python3 python3-pip python3-devel
+    
+    # 确保python3和pip3可用
+    if ! command -v python3 &> /dev/null; then
+        echo "❌ Python3安装失败"
+        exit 1
+    fi
 else
+    # CentOS 7
     yum update -y
     yum groupinstall "Development Tools" -y
     yum install -y epel-release git wget curl nginx firewalld
-    yum install -y python38 python38-pip python38-devel
+    
+    # 尝试安装Python 3.8
+    if ! yum install -y python38 python38-pip python38-devel; then
+        echo "⚠️ Python38安装失败，尝试安装IUS仓库..."
+        
+        # 安装IUS仓库
+        yum install -y https://repo.ius.io/ius-release-el7.rpm
+        
+        # 再次尝试安装Python 3.8
+        if ! yum install -y python38 python38-pip python38-devel; then
+            echo "⚠️ Python38仍然安装失败，尝试安装默认Python3..."
+            yum install -y python3 python3-pip python3-devel
+        fi
+    fi
+    
     # 创建python3软链接
-    ln -sf /usr/bin/python3.8 /usr/bin/python3
-    ln -sf /usr/bin/pip3.8 /usr/bin/pip3
+    if command -v python3.8 &> /dev/null; then
+        ln -sf /usr/bin/python3.8 /usr/bin/python3
+        ln -sf /usr/bin/pip3.8 /usr/bin/pip3
+    fi
+    
+    # 验证Python安装
+    if ! command -v python3 &> /dev/null; then
+        echo "❌ Python3安装失败，请手动安装Python3"
+        exit 1
+    fi
 fi
+
+# 验证Python版本
+PYTHON_VERSION=$(python3 --version 2>&1 | awk '{print $2}')
+echo "✅ Python版本: $PYTHON_VERSION"
+
+# 升级pip
+echo "📦 升级pip..."
+python3 -m pip install --upgrade pip
 
 # 创建应用用户
 echo "👤 创建应用用户..."
@@ -73,11 +114,30 @@ cd /home/zhfb/app
 # 创建Python虚拟环境
 echo "🐍 创建Python虚拟环境..."
 sudo -u zhfb python3 -m venv venv
+
+# 验证虚拟环境创建成功
+if [ ! -f "/home/zhfb/app/venv/bin/python" ]; then
+    echo "❌ 虚拟环境创建失败"
+    exit 1
+fi
+
+echo "✅ 虚拟环境创建成功"
+
+# 升级虚拟环境中的pip
+echo "📦 升级虚拟环境pip..."
 sudo -u zhfb /home/zhfb/app/venv/bin/pip install --upgrade pip
 
 # 安装Python依赖
 echo "📦 安装Python依赖包..."
-sudo -u zhfb /home/zhfb/app/venv/bin/pip install -r requirements.txt
+if [ -f "requirements.txt" ]; then
+    sudo -u zhfb /home/zhfb/app/venv/bin/pip install -r requirements.txt
+    echo "✅ 依赖包安装完成"
+else
+    echo "⚠️ requirements.txt文件不存在，跳过依赖安装"
+fi
+
+# 安装Gunicorn
+echo "📦 安装Gunicorn..."
 sudo -u zhfb /home/zhfb/app/venv/bin/pip install gunicorn
 
 # 创建必要目录
@@ -145,13 +205,19 @@ systemctl start zhfb
 systemctl enable nginx
 systemctl start nginx
 
+# 等待服务启动
+sleep 3
+
 # 检查服务状态
 echo "🔍 检查服务状态..."
 if systemctl is-active --quiet zhfb; then
     echo "✅ 智汇填报系统服务运行正常"
 else
     echo "❌ 智汇填报系统服务启动失败"
+    echo "查看详细错误信息:"
     systemctl status zhfb
+    echo "查看日志:"
+    journalctl -u zhfb --no-pager -n 20
 fi
 
 if systemctl is-active --quiet nginx; then
@@ -159,6 +225,20 @@ if systemctl is-active --quiet nginx; then
 else
     echo "❌ Nginx服务启动失败"
     systemctl status nginx
+fi
+
+# 测试端口连接
+echo "🔍 测试服务连接..."
+if curl -s http://127.0.0.1:5000 > /dev/null; then
+    echo "✅ 应用服务连接正常"
+else
+    echo "⚠️ 应用服务连接失败，请检查日志"
+fi
+
+if curl -s http://127.0.0.1 > /dev/null; then
+    echo "✅ Nginx代理连接正常"
+else
+    echo "⚠️ Nginx代理连接失败，请检查配置"
 fi
 
 # 获取服务器IP
@@ -170,10 +250,12 @@ echo "==========================================="
 echo "访问地址: http://$SERVER_IP"
 echo "应用目录: /home/zhfb/app"
 echo "日志目录: /home/zhfb/logs"
+echo "Python版本: $PYTHON_VERSION"
 echo ""
 echo "常用命令:"
 echo "  查看服务状态: systemctl status zhfb"
 echo "  重启服务: systemctl restart zhfb"
 echo "  查看日志: journalctl -u zhfb -f"
 echo "  进入应用目录: cd /home/zhfb/app"
+echo "  激活虚拟环境: source /home/zhfb/app/venv/bin/activate"
 echo "==========================================="
