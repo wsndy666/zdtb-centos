@@ -61,7 +61,8 @@ if [ -d "zdtb-centos" ]; then
     sudo -u zhfb git pull
 else
     echo "克隆新代码..."
-    sudo -u zhfb git clone https://github.com/YOUR_USERNAME/zdtb-centos.git
+    # 请替换为您的实际GitHub仓库地址
+    sudo -u zhfb git clone https://github.com/wsndy666/zdtb-centos.git
     cd zdtb-centos
 fi
 
