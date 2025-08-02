@@ -452,3 +452,52 @@ main() {
 
 # 执行主函数
 main "$@"
+
+# 在Python安装部分添加Python 3.13支持
+install_python_centos() {
+    echo "📦 在CentOS ${CENTOS_VERSION}上安装Python环境..."
+    
+    # 尝试安装Python 3.13
+    if yum list available python313 &>/dev/null; then
+        yum install -y python313 python313-pip python313-devel
+        ln -sf /usr/bin/python3.13 /usr/bin/python38
+        ln -sf /usr/bin/pip3.13 /usr/bin/pip38
+    # 备选方案：从源码编译Python 3.13.5
+    elif command -v wget &>/dev/null; then
+        echo "🔨 从源码编译Python 3.13.5..."
+        yum groupinstall -y "Development Tools"
+        yum install -y openssl-devel bzip2-devel libffi-devel zlib-devel
+        
+        cd /tmp
+        wget https://www.python.org/ftp/python/3.13.5/Python-3.13.5.tgz
+        tar xzf Python-3.13.5.tgz
+        cd Python-3.13.5
+        
+        ./configure --enable-optimizations --prefix=/usr/local
+        make altinstall
+        
+        # 创建符号链接
+        ln -sf /usr/local/bin/python3.13 /usr/bin/python38
+        ln -sf /usr/local/bin/pip3.13 /usr/bin/pip38
+        
+        cd /
+        rm -rf /tmp/Python-3.13.5*
+    fi
+}
+
+install_python_ubuntu() {
+    echo "📦 在Ubuntu上安装Python 3.13.5..."
+    
+    # 添加deadsnakes PPA以获取Python 3.13
+    apt update
+    apt install -y software-properties-common
+    add-apt-repository -y ppa:deadsnakes/ppa
+    apt update
+    
+    # 安装Python 3.13
+    apt install -y python3.13 python3.13-pip python3.13-dev python3.13-venv
+    
+    # 创建符号链接
+    ln -sf /usr/bin/python3.13 /usr/bin/python38
+    ln -sf /usr/bin/pip3.13 /usr/bin/pip38
+}
