@@ -44,5 +44,14 @@ Thumbs.db
 # Windows批处理文件
 *.bat
 
+# 激活码相关文件（安全考虑，不上传到GitHub）
+activation_generator.py
+activation_manager.py
+test_activation.py
+激活码使用说明.md
+激活码生成器.spec
+激活码管理工具.spec
+启动激活码管理工具.bat
+
 # 中文文档（可选，如果不想上传）
 # *.md
