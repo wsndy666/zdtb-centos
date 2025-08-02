@@ -1,0 +1,501 @@
+{% extends "base.html" %}
+
+{% block title %}使用说明 - 智汇填报{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-question-circle me-2"></i>使用说明</h2>
+                <button type="button" class="btn btn-outline-primary" onclick="printHelp()">
+                    <i class="bi bi-printer me-1"></i>打印说明
+                </button>
+            </div>
+
+            <!-- 快速开始指南 -->
+            <div class="row mb-4">
+                <div class="col-12">
+                    <div class="card shadow-sm">
+                        <div class="card-header bg-primary text-white">
+                            <h4 class="mb-0">
+                                <i class="bi bi-rocket me-2"></i>快速开始
+                            </h4>
+                        </div>
+                        <div class="card-body">
+                            <div class="row">
+                                <div class="col-md-3 text-center mb-3">
+                                    <div class="step-icon bg-primary text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                                        <span class="fs-4 fw-bold">1</span>
+                                    </div>
+                                    <h6>上传模板</h6>
+                                    <p class="text-muted small">上传Word或Excel模板文件</p>
+                                </div>
+                                <div class="col-md-3 text-center mb-3">
+                                    <div class="step-icon bg-success text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                                        <span class="fs-4 fw-bold">2</span>
+                                    </div>
+                                    <h6>管理变量</h6>
+                                    <p class="text-muted small">设置变量数据库</p>
+                                </div>
+                                <div class="col-md-3 text-center mb-3">
+                                    <div class="step-icon bg-info text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                                        <span class="fs-4 fw-bold">3</span>
+                                    </div>
+                                    <h6>创建项目</h6>
+                                    <p class="text-muted small">新建或导入项目数据</p>
+                                </div>
+                                <div class="col-md-3 text-center mb-3">
+                                    <div class="step-icon bg-warning text-white rounded-circle d-inline-flex align-items-center justify-content-center mb-2" style="width: 60px; height: 60px;">
+                                        <span class="fs-4 fw-bold">4</span>
+                                    </div>
+                                    <h6>生成文件</h6>
+                                    <p class="text-muted small">一键生成填充完整的文件</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 详细操作指南 -->
+            <div class="row">
+                <div class="col-lg-3">
+                    <!-- 导航菜单 -->
+                    <div class="card sticky-top" style="top: 20px;">
+                        <div class="card-header">
+                            <h6 class="mb-0"><i class="bi bi-list me-2"></i>操作指南</h6>
+                        </div>
+                        <div class="card-body p-0">
+                            <div class="list-group list-group-flush">
+                                <a href="#template-management" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-file-earmark me-2"></i>模板管理
+                                </a>
+                                <a href="#variable-management" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-tags me-2"></i>变量管理
+                                </a>
+                                <a href="#project-management" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-folder me-2"></i>项目管理
+                                </a>
+                                <a href="#file-generation" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-gear me-2"></i>文件生成
+                                </a>
+                                <a href="#data-management" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-database me-2"></i>数据管理
+                                </a>
+                                <a href="#operation-logs" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-clock-history me-2"></i>操作日志
+                                </a>
+                                <a href="#tips" class="list-group-item list-group-item-action">
+                                    <i class="bi bi-lightbulb me-2"></i>使用技巧
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="col-lg-9">
+                    <!-- 模板管理 -->
+                    <div id="template-management" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-file-earmark me-2"></i>模板管理</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">功能说明</h6>
+                            <p>模板管理是系统的核心功能，用于上传和管理Word、Excel模板文件。系统会自动解析模板中的变量。</p>
+                            
+                            <h6 class="text-primary mt-3">操作步骤</h6>
+                            <ol>
+                                <li><strong>上传模板：</strong>点击"上传模板"按钮，选择Word(.docx)或Excel(.xlsx)文件</li>
+                                <li><strong>模板解析：</strong>系统自动识别模板中的变量（格式：{{变量名}}）</li>
+                                <li><strong>查看详情：</strong>点击"查看详情"查看模板信息和包含的变量</li>
+                                <li><strong>下载模板：</strong>在详情页面可以重新下载原始模板文件</li>
+                                <li><strong>删除模板：</strong>不需要的模板可以删除，但会影响相关项目</li>
+                            </ol>
+                            
+                            <div class="alert alert-info">
+                                <i class="bi bi-info-circle me-2"></i>
+                                <strong>注意：</strong>模板中的变量必须使用双大括号格式，如：{{项目名称}}、{{合同编号}}等。
+                            </div>
+                            
+                            <div class="alert alert-success">
+                                <i class="bi bi-lightbulb me-2"></i>
+                                <strong>变量格式样板：</strong>
+                                <div class="mt-2">
+                                    <div class="row">
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-2">常用变量示例：</h6>
+                                            <ul class="list-unstyled">
+                                                <li><code>{{项目名称}}</code> - 项目的名称</li>
+                                                <li><code>{{合同编号}}</code> - 合同的编号</li>
+                                                <li><code>{{申请人}}</code> - 申请人姓名</li>
+                                                <li><code>{{申请日期}}</code> - 申请的日期</li>
+                                                <li><code>{{金额}}</code> - 申请金额</li>
+                                                <li><code>{{部门}}</code> - 申请部门</li>
+                                            </ul>
+                                        </div>
+                                        <div class="col-md-6">
+                                            <h6 class="text-success mb-2">格式要求：</h6>
+                                            <ul class="list-unstyled">
+                                                <li><i class="bi bi-check-circle text-success me-1"></i>必须使用英文双大括号 <code>&#123;&#123;</code> 和 <code>&#125;&#125;</code></li>
+                                                <li><i class="bi bi-check-circle text-success me-1"></i>变量名不能包含特殊字符</li>
+                                                <li><i class="bi bi-check-circle text-success me-1"></i>变量名建议使用中文，便于理解</li>
+                                                <li><i class="bi bi-x-circle text-danger me-1"></i>错误示例：<code>{项目名称}</code>、<code>【项目名称】</code></li>
+                                            </ul>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 变量管理 -->
+                    <div id="variable-management" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-tags me-2"></i>变量管理</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">功能说明</h6>
+                            <p>变量管理用于定义和维护系统中使用的所有变量，实现"一次定义，多模板复用"的目标。</p>
+                            
+                            <h6 class="text-primary mt-3">操作步骤</h6>
+                            <ol>
+                                <li><strong>添加变量：</strong>点击"添加变量"，填写变量名称、数据类型、示例值等信息</li>
+                                <li><strong>设置属性：</strong>配置变量是否必填、数据类型（文本、数字、日期等）</li>
+                                <li><strong>编辑变量：</strong>点击变量行的编辑按钮修改变量信息</li>
+                                <li><strong>删除变量：</strong>删除不需要的变量（注意：已被模板使用的变量删除后会影响文件生成）</li>
+                            </ol>
+                            
+                            <div class="alert alert-success">
+                                <i class="bi bi-currency-yen me-2"></i>
+                                <strong>💰 大写金额自动转换功能：</strong>
+                                <div class="mt-2">
+                                    <p class="mb-2">系统支持自动将数字金额转换为中文大写格式：</p>
+                                    <ul class="mb-2">
+                                        <li>在变量名中包含"大写"关键字（如：<code>{{本次支付合计大写}}</code>）</li>
+                                        <li>系统会自动将对应的数字金额转换为标准的中文大写格式</li>
+                                        <li>例如：452 → 人民币肆佰伍拾贰元整</li>
+                                        <li>支持小数点后两位的分、角转换</li>
+                                        <li>自动添加"人民币"前缀和"整"后缀</li>
+                                    </ul>
+                                    <p class="text-muted small mb-0">注意：大写金额转换仅对包含"大写"关键字的变量生效</p>
+                                </div>
+                            </div>
+                            
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>建议：</strong>在上传模板前先定义好常用变量，这样可以提高后续操作效率。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 项目管理 -->
+                    <div id="project-management" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-folder me-2"></i>项目管理</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">功能说明</h6>
+                            <p>项目管理用于创建和维护项目信息，每个项目包含具体的变量数据值。</p>
+                            
+                            <h6 class="text-primary mt-3">操作步骤</h6>
+                            <ol>
+                                <li><strong>新建项目：</strong>在首页点击"新建项目"，填写项目基本信息</li>
+                                <li><strong>批量导入：</strong>使用Excel文件批量导入多个项目数据</li>
+                                <li><strong>编辑项目：</strong>在项目管理页面编辑项目的变量数据</li>
+                                <li><strong>查看详情：</strong>查看项目的完整信息和数据</li>
+                                <li><strong>批量操作：</strong>支持批量删除和批量生成文件</li>
+                            </ol>
+                            
+                            <h6 class="text-primary mt-3">批量导入格式</h6>
+                            <p>Excel文件的第一行应为列标题，包含"填报项目名称"、"备注说明"以及各个变量名。（为兼容旧版本，仍支持"系统项目名称"、"系统合同编号"、"项目名称"、"合同编号"列名）</p>
+                            
+                            <div class="table-responsive">
+                                <table class="table table-sm table-bordered">
+                                    <thead class="table-light">
+                                        <tr>
+                                            <th>填报项目名称</th>
+                                <th>备注说明</th>
+                                            <th>项目经理</th>
+                                            <th>项目金额</th>
+                                            <th>...</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        <tr>
+                                            <td>示例项目A</td>
+                                            <td>CONTRACT-001</td>
+                                            <td>张三</td>
+                                            <td>100000</td>
+                                            <td>...</td>
+                                        </tr>
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 文件生成 -->
+                    <div id="file-generation" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-gear me-2"></i>文件生成</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">功能说明</h6>
+                            <p>文件生成是系统的最终目标，将项目数据填充到模板中，生成完整的报告文件。</p>
+                            
+                            <h6 class="text-primary mt-3">操作步骤</h6>
+                            <ol>
+                                <li><strong>选择项目：</strong>在首页点击项目卡片，进入模板选择界面</li>
+                                <li><strong>选择模板：</strong>选择要使用的模板，系统会检查数据完整性</li>
+                                <li><strong>补充数据：</strong>如果缺少必要数据，系统会提示补充</li>
+                                <li><strong>生成文件：</strong>点击"生成文件"，系统自动填充数据并生成文件</li>
+                                <li><strong>下载文件：</strong>生成完成后可以直接下载文件</li>
+                            </ol>
+                            
+                            <h6 class="text-primary mt-3">批量生成</h6>
+                            <p>在项目管理页面，可以选择多个项目进行批量文件生成，提高工作效率。</p>
+                            
+                            <div class="alert alert-success">
+                                <i class="bi bi-check-circle me-2"></i>
+                                <strong>提示：</strong>生成的文件保存在output文件夹中，按项目和模板分类存储。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 数据管理 -->
+                    <div id="data-management" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-database me-2"></i>数据管理</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">功能说明</h6>
+                            <p>数据管理用于维护系统生成的文件，防止文件过多影响系统性能。</p>
+                            
+                            <h6 class="text-primary mt-3">主要功能</h6>
+                            <ul>
+                                <li><strong>文件列表：</strong>查看所有生成的文件，包括大小、类型、修改时间</li>
+                                <li><strong>统计信息：</strong>显示文件总数、占用空间等统计数据</li>
+                                <li><strong>单个删除：</strong>删除不需要的单个文件</li>
+                                <li><strong>批量清理：</strong>清理7天前的文件或清理所有文件</li>
+                                <li><strong>实时刷新：</strong>实时更新文件列表和统计信息</li>
+                            </ul>
+                            
+                            <div class="alert alert-warning">
+                                <i class="bi bi-exclamation-triangle me-2"></i>
+                                <strong>注意：</strong>删除操作无法撤销，请谨慎操作。建议定期清理旧文件以保持系统性能。
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 操作日志 -->
+                    <div id="operation-logs" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-clock-history me-2"></i>操作日志</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">功能说明</h6>
+                            <p>操作日志记录系统中的所有重要操作，便于追踪和审计。</p>
+                            
+                            <h6 class="text-primary mt-3">记录内容</h6>
+                            <ul>
+                                <li>模板上传、删除操作</li>
+                                <li>变量的增删改操作</li>
+                                <li>项目的创建、编辑、删除</li>
+                                <li>文件生成操作</li>
+                                <li>数据导入导出操作</li>
+                            </ul>
+                            
+                            <h6 class="text-primary mt-3">查询功能</h6>
+                            <p>支持按操作类型、时间范围、关键词等条件筛选日志，并可导出日志数据。</p>
+                        </div>
+                    </div>
+
+                    <!-- 使用技巧 -->
+                    <div id="tips" class="card mb-4">
+                        <div class="card-header bg-light">
+                            <h5 class="mb-0"><i class="bi bi-lightbulb me-2"></i>使用技巧</h5>
+                        </div>
+                        <div class="card-body">
+                            <h6 class="text-primary">提高效率的建议</h6>
+                            <div class="row">
+                                <div class="col-md-6">
+                                    <ul>
+                                        <li><strong>标准化变量名：</strong>使用统一的变量命名规范</li>
+                                        <li><strong>模板复用：</strong>设计通用性强的模板</li>
+                                        <li><strong>批量操作：</strong>充分利用批量导入和生成功能</li>
+                                        <li><strong>定期清理：</strong>定期清理不需要的文件和数据</li>
+                                    </ul>
+                                </div>
+                                <div class="col-md-6">
+                                    <ul>
+                                        <li><strong>数据备份：</strong>重要数据要及时备份</li>
+                                        <li><strong>权限管理：</strong>合理分配用户操作权限</li>
+                                        <li><strong>日志监控：</strong>定期查看操作日志</li>
+                                        <li><strong>性能优化：</strong>避免上传过大的模板文件</li>
+                                    </ul>
+                                </div>
+                            </div>
+                            
+                            <h6 class="text-primary mt-3">常见问题解决</h6>
+                            <div class="accordion" id="faqAccordion">
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq1">
+                                            模板变量无法识别怎么办？
+                                        </button>
+                                    </h2>
+                                    <div id="faq1" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                        <div class="accordion-body">
+                                            检查变量格式是否正确（{{变量名}}），确保使用英文大括号，变量名不包含特殊字符。
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq2">
+                                            文件生成失败怎么办？
+                                        </button>
+                                    </h2>
+                                    <div id="faq2" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                        <div class="accordion-body">
+                                            检查项目数据是否完整，确保所有必填变量都有值。如果问题持续，请查看操作日志获取详细错误信息。
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <div class="accordion-item">
+                                    <h2 class="accordion-header">
+                                        <button class="accordion-button collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#faq3">
+                                            如何提高系统性能？
+                                        </button>
+                                    </h2>
+                                    <div id="faq3" class="accordion-collapse collapse" data-bs-parent="#faqAccordion">
+                                        <div class="accordion-body">
+                                            定期清理不需要的文件，避免上传过大的模板，合理控制项目数量，定期备份并清理历史数据。
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 平滑滚动到锚点
+document.addEventListener('DOMContentLoaded', function() {
+    // 处理导航链接点击
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+        anchor.addEventListener('click', function (e) {
+            e.preventDefault();
+            const target = document.querySelector(this.getAttribute('href'));
+            if (target) {
+                target.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+                
+                // 更新活动状态
+                document.querySelectorAll('.list-group-item').forEach(item => {
+                    item.classList.remove('active');
+                });
+                this.classList.add('active');
+            }
+        });
+    });
+    
+    // 滚动时更新导航状态
+    window.addEventListener('scroll', function() {
+        const sections = document.querySelectorAll('[id]');
+        const navLinks = document.querySelectorAll('.list-group-item[href^="#"]');
+        
+        let current = '';
+        sections.forEach(section => {
+            const sectionTop = section.offsetTop;
+            const sectionHeight = section.clientHeight;
+            if (window.pageYOffset >= sectionTop - 100) {
+                current = section.getAttribute('id');
+            }
+        });
+        
+        navLinks.forEach(link => {
+            link.classList.remove('active');
+            if (link.getAttribute('href') === '#' + current) {
+                link.classList.add('active');
+            }
+        });
+    });
+});
+
+// 打印功能
+function printHelp() {
+    window.print();
+}
+
+// 页面加载动画
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.card');
+    cards.forEach((card, index) => {
+        card.style.opacity = '0';
+        card.style.transform = 'translateY(20px)';
+        
+        setTimeout(() => {
+            card.style.transition = 'all 0.5s ease';
+            card.style.opacity = '1';
+            card.style.transform = 'translateY(0)';
+        }, index * 50);
+    });
+});
+</script>
+
+<style>
+@media print {
+    .btn, .card-header, .sticky-top {
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+    }
+    
+    .sticky-top {
+        position: static !important;
+    }
+    
+    .col-lg-3 {
+        display: none;
+    }
+    
+    .col-lg-9 {
+        width: 100% !important;
+        max-width: 100% !important;
+    }
+}
+
+.step-icon {
+    transition: all 0.3s ease;
+}
+
+.step-icon:hover {
+    transform: scale(1.1);
+}
+
+.list-group-item {
+    transition: all 0.2s ease;
+}
+
+.list-group-item:hover {
+    background-color: #f8f9fa;
+    transform: translateX(5px);
+}
+
+.list-group-item.active {
+    background-color: #0d6efd;
+    border-color: #0d6efd;
+}
+</style>
+{% endblock %}

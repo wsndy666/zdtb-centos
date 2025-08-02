@@ -1,0 +1,42 @@
+# Python
+__pycache__/
+*.py[cod]
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.env
+
+# 数据库文件
+*.db
+*.db.backup_*
+
+# 上传和输出文件
+uploads/
+output/
+temp/
+
+# 日志文件
+logs/
+*.log
+
+# IDE文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
+
+# 打包文件
+*.spec
+*.exe
+*.zip
+
+# Vercel
+.vercel/

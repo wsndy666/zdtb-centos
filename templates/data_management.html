@@ -1,0 +1,391 @@
+{% extends "base.html" %}
+
+{% block title %}数据管理 - 智汇填报{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h2><i class="bi bi-database me-2"></i>数据管理</h2>
+                <div>
+                    <button type="button" class="btn btn-warning me-2" onclick="cleanOldFiles()">
+                        <i class="bi bi-clock-history me-1"></i>清理7天前文件
+                    </button>
+                    <button type="button" class="btn btn-danger" onclick="cleanAllFiles()">
+                        <i class="bi bi-trash3 me-1"></i>清理所有文件
+                    </button>
+                </div>
+            </div>
+
+            <!-- 统计信息卡片 -->
+            <div class="row mb-4">
+                <div class="col-md-3">
+                    <div class="card bg-primary text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="totalFiles">0</h4>
+                                    <p class="card-text">总文件数</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-files fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-info text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="totalSize">0 MB</h4>
+                                    <p class="card-text">总占用空间</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-hdd fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-success text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="zipFiles">0</h4>
+                                    <p class="card-text">压缩文件</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-file-zip fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3">
+                    <div class="card bg-warning text-white">
+                        <div class="card-body">
+                            <div class="d-flex justify-content-between">
+                                <div>
+                                    <h4 class="card-title" id="excelFiles">0</h4>
+                                    <p class="card-text">Excel文件</p>
+                                </div>
+                                <div class="align-self-center">
+                                    <i class="bi bi-file-excel fs-1"></i>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 文件列表 -->
+            <div class="card">
+                <div class="card-header">
+                    <h5 class="mb-0">
+                        <i class="bi bi-folder2-open me-2"></i>导出文件列表
+                        <button type="button" class="btn btn-outline-primary btn-sm float-end" onclick="refreshFileList()">
+                            <i class="bi bi-arrow-clockwise me-1"></i>刷新
+                        </button>
+                    </h5>
+                </div>
+                <div class="card-body">
+                    <div id="loadingIndicator" class="text-center py-4">
+                        <div class="spinner-border text-primary" role="status">
+                            <span class="visually-hidden">加载中...</span>
+                        </div>
+                        <p class="mt-2">正在加载文件列表...</p>
+                    </div>
+                    
+                    <div id="fileListContainer" style="display: none;">
+                        <div class="table-responsive">
+                            <table class="table table-hover">
+                                <thead class="table-light">
+                                    <tr>
+                                        <th><i class="bi bi-file-text me-1"></i>文件名</th>
+                                        <th><i class="bi bi-folder me-1"></i>路径</th>
+                                        <th><i class="bi bi-hdd me-1"></i>大小</th>
+                                        <th><i class="bi bi-calendar me-1"></i>修改时间</th>
+                                        <th><i class="bi bi-tag me-1"></i>类型</th>
+                                        <th><i class="bi bi-gear me-1"></i>操作</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fileListBody">
+                                    <!-- 文件列表将在这里动态生成 -->
+                                </tbody>
+                            </table>
+                        </div>
+                        
+                        <div id="emptyState" class="text-center py-5" style="display: none;">
+                            <i class="bi bi-folder-x fs-1 text-muted"></i>
+                            <h5 class="text-muted mt-3">暂无导出文件</h5>
+                            <p class="text-muted">当您生成报告或导出数据时，文件将显示在这里</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 确认删除模态框 -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>确认删除
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>确定要删除文件 <strong id="deleteFileName"></strong> 吗？</p>
+                <p class="text-muted small">此操作无法撤销！</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDelete()">删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 清理确认模态框 -->
+<div class="modal fade" id="cleanConfirmModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">
+                    <i class="bi bi-exclamation-triangle text-warning me-2"></i>确认清理
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p id="cleanMessage"></p>
+                <p class="text-danger small"><strong>警告：此操作无法撤销！</strong></p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger" onclick="confirmClean()">确认清理</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentDeletePath = '';
+let currentCleanType = '';
+
+// 页面加载时获取文件列表
+document.addEventListener('DOMContentLoaded', function() {
+    loadFileList();
+});
+
+// 加载文件列表
+function loadFileList() {
+    document.getElementById('loadingIndicator').style.display = 'block';
+    document.getElementById('fileListContainer').style.display = 'none';
+    
+    fetch('/get_export_files')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayFileList(data.files);
+                updateStatistics(data);
+            } else {
+                alert('获取文件列表失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('获取文件列表时发生错误');
+        })
+        .finally(() => {
+            document.getElementById('loadingIndicator').style.display = 'none';
+            document.getElementById('fileListContainer').style.display = 'block';
+        });
+}
+
+// 显示文件列表
+function displayFileList(files) {
+    const tbody = document.getElementById('fileListBody');
+    const emptyState = document.getElementById('emptyState');
+    
+    if (files.length === 0) {
+        tbody.innerHTML = '';
+        emptyState.style.display = 'block';
+        return;
+    }
+    
+    emptyState.style.display = 'none';
+    
+    tbody.innerHTML = files.map(file => {
+        const typeIcon = getFileTypeIcon(file.type);
+        const typeBadge = getFileTypeBadge(file.type);
+        
+        return `
+            <tr>
+                <td>
+                    <i class="${typeIcon} me-2"></i>
+                    <span class="fw-medium">${file.name}</span>
+                </td>
+                <td>
+                    <small class="text-muted">${file.path}</small>
+                </td>
+                <td>
+                    <span class="badge bg-light text-dark">${file.size_mb} MB</span>
+                </td>
+                <td>
+                    <small>${file.modified_time}</small>
+                </td>
+                <td>
+                    ${typeBadge}
+                </td>
+                <td>
+                    <button type="button" class="btn btn-outline-danger btn-sm" 
+                            onclick="deleteFile('${file.path}', '${file.name}')" 
+                            title="删除文件">
+                        <i class="bi bi-trash"></i>
+                    </button>
+                </td>
+            </tr>
+        `;
+    }).join('');
+}
+
+// 更新统计信息
+function updateStatistics(data) {
+    document.getElementById('totalFiles').textContent = data.total_files;
+    document.getElementById('totalSize').textContent = data.total_size_mb + ' MB';
+    
+    const zipCount = data.files.filter(f => f.type === 'zip').length;
+    const excelCount = data.files.filter(f => f.type === 'excel').length;
+    
+    document.getElementById('zipFiles').textContent = zipCount;
+    document.getElementById('excelFiles').textContent = excelCount;
+}
+
+// 获取文件类型图标
+function getFileTypeIcon(type) {
+    switch(type) {
+        case 'zip': return 'bi bi-file-zip text-warning';
+        case 'excel': return 'bi bi-file-excel text-success';
+        case 'word': return 'bi bi-file-word text-primary';
+        default: return 'bi bi-file-text text-secondary';
+    }
+}
+
+// 获取文件类型徽章
+function getFileTypeBadge(type) {
+    switch(type) {
+        case 'zip': return '<span class="badge bg-warning">ZIP</span>';
+        case 'excel': return '<span class="badge bg-success">Excel</span>';
+        case 'word': return '<span class="badge bg-primary">Word</span>';
+        default: return '<span class="badge bg-secondary">其他</span>';
+    }
+}
+
+// 删除文件
+function deleteFile(filePath, fileName) {
+    currentDeletePath = filePath;
+    document.getElementById('deleteFileName').textContent = fileName;
+    new bootstrap.Modal(document.getElementById('deleteConfirmModal')).show();
+}
+
+// 确认删除
+function confirmDelete() {
+    fetch('/delete_export_file', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            file_path: currentDeletePath
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('deleteConfirmModal')).hide();
+            loadFileList(); // 重新加载文件列表
+            showToast('success', data.message);
+        } else {
+            alert('删除失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('删除文件时发生错误');
+    });
+}
+
+// 清理旧文件
+function cleanOldFiles() {
+    currentCleanType = 'old';
+    document.getElementById('cleanMessage').textContent = '确定要清理7天前的所有文件吗？这将删除所有修改时间超过7天的文件。';
+    new bootstrap.Modal(document.getElementById('cleanConfirmModal')).show();
+}
+
+// 清理所有文件
+function cleanAllFiles() {
+    currentCleanType = 'all';
+    document.getElementById('cleanMessage').textContent = '确定要清理所有导出文件吗？这将删除output文件夹中的所有文件。';
+    new bootstrap.Modal(document.getElementById('cleanConfirmModal')).show();
+}
+
+// 确认清理
+function confirmClean() {
+    fetch('/clean_export_files', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+            type: currentCleanType
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            bootstrap.Modal.getInstance(document.getElementById('cleanConfirmModal')).hide();
+            loadFileList(); // 重新加载文件列表
+            showToast('success', data.message);
+        } else {
+            alert('清理失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('清理文件时发生错误');
+    });
+}
+
+// 刷新文件列表
+function refreshFileList() {
+    loadFileList();
+}
+
+// 显示提示消息
+function showToast(type, message) {
+    const toast = document.createElement('div');
+    toast.className = `position-fixed top-0 start-50 translate-middle-x mt-3 alert alert-${type === 'success' ? 'success' : 'danger'} alert-dismissible fade show`;
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `
+        <i class="bi bi-${type === 'success' ? 'check-circle' : 'exclamation-triangle'} me-2"></i>${message}
+        <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+    `;
+    document.body.appendChild(toast);
+    
+    setTimeout(() => {
+        if (toast.parentNode) {
+            toast.parentNode.removeChild(toast);
+        }
+    }, 5000);
+}
+</script>
+{% endblock %}

@@ -1,0 +1,248 @@
+{% extends "base.html" %}
+
+{% block title %}操作日志 - 智汇填报{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">操作日志</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="exportLogs()">
+                <i class="bi bi-download"></i> 导出日志
+            </button>
+            <button type="button" class="btn btn-outline-danger" onclick="clearLogs()">
+                <i class="bi bi-trash"></i> 清空日志
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- 筛选器 -->
+<div class="row mb-3">
+    <div class="col-md-3">
+        <label for="operationFilter" class="form-label">操作类型</label>
+        <select class="form-select" id="operationFilter" onchange="filterLogs()">
+            <option value="">全部操作</option>
+            <option value="创建项目">创建项目</option>
+            <option value="更新项目">更新项目</option>
+            <option value="删除项目">删除项目</option>
+            <option value="上传模板">上传模板</option>
+            <option value="删除模板">删除模板</option>
+            <option value="生成文件">生成文件</option>
+            <option value="导入数据">导入数据</option>
+            <option value="导出数据">导出数据</option>
+        </select>
+    </div>
+    <div class="col-md-3">
+        <label for="dateFilter" class="form-label">日期筛选</label>
+        <input type="date" class="form-control" id="dateFilter" onchange="filterLogs()">
+    </div>
+    <div class="col-md-4">
+        <label for="searchFilter" class="form-label">搜索关键词</label>
+        <input type="text" class="form-control" id="searchFilter" placeholder="搜索操作详情..." oninput="filterLogs()">
+    </div>
+    <div class="col-md-2">
+        <label class="form-label">&nbsp;</label>
+        <button type="button" class="btn btn-outline-secondary d-block w-100" onclick="resetFilters()">
+            <i class="bi bi-arrow-clockwise"></i> 重置
+        </button>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>时间</th>
+                <th>操作类型</th>
+                <th>操作详情</th>
+                <th>状态</th>
+                <th>IP地址</th>
+            </tr>
+        </thead>
+        <tbody id="logsTableBody">
+            {% if logs %}
+                {% for log in logs %}
+                <tr class="log-row" 
+                    data-operation="{{ log[1] }}" 
+                    data-date="{{ log[0][:10] }}" 
+                    data-details="{{ log[2].lower() }}">
+                    <td>
+                        <small class="text-muted">{{ log[0] }}</small>
+                    </td>
+                    <td>
+                        {% if log[1] == '创建项目' %}
+                            <span class="badge bg-success">{{ log[1] }}</span>
+                        {% elif log[1] == '更新项目' %}
+                            <span class="badge bg-primary">{{ log[1] }}</span>
+                        {% elif log[1] == '删除项目' %}
+                            <span class="badge bg-danger">{{ log[1] }}</span>
+                        {% elif log[1] == '上传模板' %}
+                            <span class="badge bg-info">{{ log[1] }}</span>
+                        {% elif log[1] == '删除模板' %}
+                            <span class="badge bg-warning">{{ log[1] }}</span>
+                        {% elif log[1] == '生成文件' %}
+                            <span class="badge bg-secondary">{{ log[1] }}</span>
+                        {% elif log[1] == '导入数据' %}
+                            <span class="badge bg-dark">{{ log[1] }}</span>
+                        {% elif log[1] == '导出数据' %}
+                            <span class="badge bg-light text-dark">{{ log[1] }}</span>
+                        {% else %}
+                            <span class="badge bg-secondary">{{ log[1] }}</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ log[2] }}</td>
+                    <td>
+                        {% if log[3] == 'success' %}
+                            <i class="bi bi-check-circle-fill text-success"></i> 成功
+                        {% elif log[3] == 'error' %}
+                            <i class="bi bi-x-circle-fill text-danger"></i> 失败
+                        {% else %}
+                            <i class="bi bi-info-circle-fill text-info"></i> {{ log[3] }}
+                        {% endif %}
+                    </td>
+                    <td>
+                        <code class="small">{{ log[4] or '127.0.0.1' }}</code>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="5" class="text-center text-muted py-4">
+                        <i class="bi bi-journal-x" style="font-size: 2rem;"></i><br>
+                        暂无操作日志<br>
+                        <small>系统操作记录将显示在这里</small>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 分页 -->
+<nav aria-label="日志分页">
+    <ul class="pagination justify-content-center">
+        <li class="page-item disabled">
+            <a class="page-link" href="#" tabindex="-1">上一页</a>
+        </li>
+        <li class="page-item active">
+            <a class="page-link" href="#">1</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="#">2</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="#">3</a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="#">下一页</a>
+        </li>
+    </ul>
+</nav>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterLogs() {
+    const operationFilter = document.getElementById('operationFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+    const searchFilter = document.getElementById('searchFilter').value.toLowerCase();
+    
+    const rows = document.querySelectorAll('.log-row');
+    
+    rows.forEach(row => {
+        const operation = row.getAttribute('data-operation');
+        const date = row.getAttribute('data-date');
+        const details = row.getAttribute('data-details');
+        
+        let showRow = true;
+        
+        // 操作类型筛选
+        if (operationFilter && operation !== operationFilter) {
+            showRow = false;
+        }
+        
+        // 日期筛选
+        if (dateFilter && date !== dateFilter) {
+            showRow = false;
+        }
+        
+        // 搜索筛选
+        if (searchFilter && !details.includes(searchFilter)) {
+            showRow = false;
+        }
+        
+        row.style.display = showRow ? '' : 'none';
+    });
+    
+    // 更新显示的行数
+    updateVisibleRowsCount();
+}
+
+function resetFilters() {
+    document.getElementById('operationFilter').value = '';
+    document.getElementById('dateFilter').value = '';
+    document.getElementById('searchFilter').value = '';
+    
+    const rows = document.querySelectorAll('.log-row');
+    rows.forEach(row => {
+        row.style.display = '';
+    });
+    
+    updateVisibleRowsCount();
+}
+
+function updateVisibleRowsCount() {
+    const visibleRows = document.querySelectorAll('.log-row:not([style*="display: none"])');
+    const totalRows = document.querySelectorAll('.log-row');
+    
+    // 可以在这里添加显示筛选结果数量的逻辑
+    console.log(`显示 ${visibleRows.length} / ${totalRows.length} 条记录`);
+}
+
+function exportLogs() {
+    // 获取当前筛选条件
+    const operationFilter = document.getElementById('operationFilter').value;
+    const dateFilter = document.getElementById('dateFilter').value;
+    const searchFilter = document.getElementById('searchFilter').value;
+    
+    // 构建导出URL
+    const params = new URLSearchParams();
+    if (operationFilter) params.append('operation', operationFilter);
+    if (dateFilter) params.append('date', dateFilter);
+    if (searchFilter) params.append('search', searchFilter);
+    
+    const url = '/export_logs' + (params.toString() ? '?' + params.toString() : '');
+    window.location.href = url;
+}
+
+function clearLogs() {
+    if (confirm('确定要清空所有操作日志吗？此操作无法撤销。')) {
+        fetch('/clear_logs', {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('日志清空成功！');
+                location.reload();
+            } else {
+                alert('清空失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('清空失败');
+        });
+    }
+}
+
+// 页面加载时设置今天的日期为默认值
+document.addEventListener('DOMContentLoaded', function() {
+    const today = new Date().toISOString().split('T')[0];
+    // 可以选择是否默认筛选今天的日志
+    // document.getElementById('dateFilter').value = today;
+    // filterLogs();
+});
+</script>
+{% endblock %}

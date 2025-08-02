@@ -1,0 +1,489 @@
+{% extends "base.html" %}
+
+{% block title %}项目首页 - 智汇填报{% endblock %}
+
+{% block content %}
+<!-- 试用状态提示 -->
+<div id="trialStatusAlert" class="alert alert-warning alert-dismissible fade show" role="alert" style="display: none;">
+    <div class="d-flex align-items-center">
+        <i class="bi bi-exclamation-triangle-fill me-2"></i>
+        <div class="flex-grow-1">
+            <strong>试用版本提醒</strong>
+            <div id="trialStatusContent"></div>
+        </div>
+        <a href="/about" class="btn btn-sm btn-outline-warning ms-2">
+            <i class="bi bi-key"></i> 激活系统
+        </a>
+    </div>
+    <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+</div>
+
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">项目数据列表</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <div class="btn-group me-2">
+            <button type="button" class="btn btn-outline-secondary" onclick="importData()">
+                <i class="bi bi-upload"></i> 导入数据
+            </button>
+            <button type="button" class="btn btn-primary" onclick="createProject()">
+                <i class="bi bi-plus-circle"></i> 新建项目
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    {% if projects %}
+        {% for project in projects %}
+        <div class="col-md-6 col-lg-4 mb-4">
+            <div class="card card-hover h-100">
+                <div class="card-body">
+                    <h5 class="card-title">{{ project[1] }}</h5>
+                    <p class="card-text">
+                        <small class="text-muted">
+                            <i class="bi bi-file-text"></i> 备注: {{ project[2] or '未设置' }}<br>
+                            <i class="bi bi-clock"></i> 更新时间: {{ project[3] }}<br>
+                            <i class="bi bi-files"></i> 关联模板: {{ project[4] or 0 }} 个
+                        </small>
+                    </p>
+                </div>
+                <div class="card-footer bg-transparent">
+                    <button class="btn btn-success btn-sm" onclick="selectProject({{ project[0] }}, '{{ project[1] }}')">
+                        <i class="bi bi-check-circle"></i> 选择项目
+                    </button>
+
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    {% else %}
+        <div class="col-12">
+            <div class="text-center py-5">
+                <i class="bi bi-folder-x" style="font-size: 3rem; color: #6c757d;"></i>
+                <h4 class="mt-3 text-muted">暂无项目数据</h4>
+                <p class="text-muted">点击"新建项目"或"导入数据"开始使用系统</p>
+                <button class="btn btn-primary" onclick="createProject()">
+                    <i class="bi bi-plus-circle"></i> 创建第一个项目
+                </button>
+            </div>
+        </div>
+    {% endif %}
+</div>
+
+<!-- 模板选择模态框 -->
+<div class="modal fade" id="templateModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">选择模板生成文件</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div id="templateList"></div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 新建项目模态框 -->
+<div class="modal fade" id="createProjectModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">新建项目</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createProjectForm">
+                    <div class="mb-3">
+                        <label for="projectName" class="form-label">填报项目名称 *</label>
+                        <input type="text" class="form-control" id="projectName" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="contractNumber" class="form-label">备注</label>
+                        <input type="text" class="form-control" id="contractNumber">
+                    </div>
+                    <div id="additionalFields"></div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveProject()">保存项目</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 导入数据模态框 -->
+<div class="modal fade" id="importModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">导入项目数据</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="importForm" enctype="multipart/form-data">
+                    <div class="mb-3">
+                        <label for="importFile" class="form-label">选择Excel文件</label>
+                        <input type="file" class="form-control" id="importFile" accept=".xlsx,.xls" required>
+                        <div class="form-text">支持.xlsx和.xls格式，第一行为列标题</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="uploadImportFile()">导入</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let currentProjectId = null;
+let currentProjectName = null;
+
+function selectProject(projectId, projectName) {
+    currentProjectId = projectId;
+    currentProjectName = projectName;
+    
+    // 获取可用模板
+    fetch(`/get_templates/${projectId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                displayTemplates(data.templates);
+                $('#templateModal').modal('show');
+            } else {
+                alert('获取模板失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            alert('获取模板失败');
+        });
+}
+
+function displayTemplates(templates) {
+    const templateList = document.getElementById('templateList');
+    templateList.innerHTML = '';
+    
+    if (templates.length === 0) {
+        templateList.innerHTML = '<p class="text-muted">暂无可用模板，请先上传模板文件。</p>';
+        return;
+    }
+    
+    templates.forEach(template => {
+        const card = document.createElement('div');
+        card.className = 'card mb-3';
+        
+        const statusBadge = template.can_generate 
+            ? '<span class="badge bg-success">可生成</span>'
+            : `<span class="badge bg-warning">缺少${template.missing_variables.length}个变量</span>`;
+        
+        card.innerHTML = `
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h6 class="card-title">${template.name}</h6>
+                        <p class="card-text">
+                            <small class="text-muted">
+                                文件类型: ${template.file_type}<br>
+                                需要变量: ${template.required_variables.length}个
+                            </small>
+                        </p>
+                        ${!template.can_generate ? `
+                            <p class="text-warning mb-0">
+                                <small>缺少变量: ${template.missing_variables.join(', ')}</small>
+                            </p>
+                        ` : ''}
+                    </div>
+                    <div>
+                        ${statusBadge}
+                    </div>
+                </div>
+                <div class="mt-3">
+                    ${template.can_generate 
+                        ? `<button class="btn btn-success btn-sm" onclick="generateFile(${template.id})">生成文件</button>`
+                        : `<button class="btn btn-warning btn-sm" onclick="generateWithMissingData(${template.id}, ${JSON.stringify(template.missing_variables).replace(/"/g, '&quot;')})">补充数据并生成</button>`
+                    }
+                </div>
+            </div>
+        `;
+        
+        templateList.appendChild(card);
+    });
+}
+
+function generateFile(templateId) {
+    const data = {
+        project_id: currentProjectId,
+        template_id: templateId,
+        additional_data: {}
+    };
+    
+    fetch('/generate_file', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('文件生成成功！');
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = data.download_url;
+            link.download = '';
+            link.click();
+            $('#templateModal').modal('hide');
+        } else {
+            alert('生成失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('生成失败');
+    });
+}
+
+function generateWithMissingData(templateId, missingVariables) {
+    // 创建表单让用户填写缺失的变量
+    let formHtml = '<form id="missingDataForm">';
+    missingVariables.forEach(variable => {
+        formHtml += `
+            <div class="mb-3">
+                <label for="var_${variable}" class="form-label">${variable}</label>
+                <input type="text" class="form-control" id="var_${variable}" name="${variable}" required>
+            </div>
+        `;
+    });
+    formHtml += '</form>';
+    
+    const modalHtml = `
+        <div class="modal fade" id="missingDataModal" tabindex="-1">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <div class="modal-header">
+                        <h5 class="modal-title">补充缺失数据</h5>
+                        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                    </div>
+                    <div class="modal-body">
+                        ${formHtml}
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                        <button type="button" class="btn btn-primary" onclick="submitMissingData(${templateId})">生成文件</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // 移除已存在的模态框
+    const existingModal = document.getElementById('missingDataModal');
+    if (existingModal) {
+        existingModal.remove();
+    }
+    
+    // 添加新模态框
+    document.body.insertAdjacentHTML('beforeend', modalHtml);
+    $('#missingDataModal').modal('show');
+}
+
+function submitMissingData(templateId) {
+    const form = document.getElementById('missingDataForm');
+    const formData = new FormData(form);
+    const additionalData = {};
+    
+    for (let [key, value] of formData.entries()) {
+        additionalData[key] = value;
+    }
+    
+    const data = {
+        project_id: currentProjectId,
+        template_id: templateId,
+        additional_data: additionalData
+    };
+    
+    fetch('/generate_file', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('文件生成成功！');
+            // 创建下载链接
+            const link = document.createElement('a');
+            link.href = data.download_url;
+            link.download = '';
+            link.click();
+            $('#missingDataModal').modal('hide');
+            $('#templateModal').modal('hide');
+        } else {
+            alert('生成失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('生成失败');
+    });
+}
+
+function createProject() {
+    $('#createProjectModal').modal('show');
+}
+
+function saveProject() {
+    const projectName = document.getElementById('projectName').value;
+    const contractNumber = document.getElementById('contractNumber').value;
+    
+    if (!projectName.trim()) {
+        alert('请输入填报项目名称');
+        return;
+    }
+    
+    const data = {
+        name: projectName,
+        contract_number: contractNumber,
+        data: {}
+    };
+    
+    fetch('/create_project', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('项目创建成功！');
+            location.reload();
+        } else {
+            alert('创建失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('创建失败');
+    });
+}
+
+function importData() {
+    $('#importModal').modal('show');
+}
+
+function uploadImportFile() {
+    const fileInput = document.getElementById('importFile');
+    const file = fileInput.files[0];
+    
+    if (!file) {
+        alert('请选择文件');
+        return;
+    }
+    
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    fetch('/import_data', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(`导入成功！共导入 ${data.count} 个项目`);
+            location.reload();
+        } else {
+            alert('导入失败: ' + data.message);
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        alert('导入失败');
+    });
+}
+
+// 检查试用状态
+function checkTrialStatus() {
+    fetch('/api/activation/status')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.activation_status) {
+                const status = data.activation_status;
+                if (!status.activated) {
+                    // 获取试用限制信息
+                    fetch('/api/trial/status')
+                        .then(response => response.json())
+                        .then(trialData => {
+                            if (trialData.success) {
+                                displayTrialStatus(trialData.limits);
+                            }
+                        })
+                        .catch(error => console.error('获取试用状态失败:', error));
+                }
+            }
+        })
+        .catch(error => console.error('获取激活状态失败:', error));
+}
+
+// 显示试用状态
+function displayTrialStatus(limits) {
+    const alertElement = document.getElementById('trialStatusAlert');
+    const contentElement = document.getElementById('trialStatusContent');
+    
+    let statusHtml = '<div class="small mt-1">';
+    let hasLimits = false;
+    
+    // 显示主要功能的试用限制
+    const mainLimits = [
+        { key: '模板上传', name: '模板上传', icon: 'bi-upload' },
+        { key: '项目创建', name: '项目创建', icon: 'bi-plus-circle' },
+        { key: '数据导入', name: '数据导入', icon: 'bi-download' },
+        { key: '批量生成文件', name: '批量生成', icon: 'bi-files' }
+    ];
+    
+    mainLimits.forEach(limit => {
+        if (limits[limit.key]) {
+            const usage = limits[limit.key];
+            const remaining = usage.limit - usage.used;
+            const percentage = (usage.used / usage.limit) * 100;
+            
+            let badgeClass = 'bg-success';
+            if (percentage >= 80) badgeClass = 'bg-danger';
+            else if (percentage >= 60) badgeClass = 'bg-warning';
+            
+            statusHtml += `
+                <span class="badge ${badgeClass} me-2 mb-1">
+                    <i class="${limit.icon} me-1"></i>${limit.name}: ${remaining}/${usage.limit}
+                </span>
+            `;
+            hasLimits = true;
+        }
+    });
+    
+    statusHtml += '</div>';
+    
+    if (hasLimits) {
+        contentElement.innerHTML = statusHtml;
+        alertElement.style.display = 'block';
+    }
+}
+
+// 页面加载时检查试用状态
+document.addEventListener('DOMContentLoaded', function() {
+    checkTrialStatus();
+});
+
+</script>
+{% endblock %}

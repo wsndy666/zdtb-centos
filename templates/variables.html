@@ -1,0 +1,258 @@
+{% extends "base.html" %}
+
+{% block title %}变量管理 - 智汇填报{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between flex-wrap flex-md-nowrap align-items-center pt-3 pb-2 mb-3 border-bottom">
+    <h1 class="h2">变量管理</h1>
+    <div class="btn-toolbar mb-2 mb-md-0">
+        <button type="button" class="btn btn-primary" onclick="addVariable()">
+            <i class="bi bi-plus-circle"></i> 添加变量
+        </button>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="table table-striped table-hover">
+        <thead>
+            <tr>
+                <th>变量名称</th>
+                <th>数据类型</th>
+                <th>示例值</th>
+                <th>是否必填</th>
+                <th>关联模板数</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% if variables %}
+                {% for variable in variables %}
+                <tr>
+                    <td><strong>{{ variable[1] }}</strong></td>
+                    <td>
+                        <span class="badge bg-secondary">{{ variable[2] }}</span>
+                    </td>
+                    <td>
+                        <small class="text-muted">{{ variable[3] or '无示例' }}</small>
+                    </td>
+                    <td>
+                        {% if variable[4] %}
+                            <span class="badge bg-danger">必填</span>
+                        {% else %}
+                            <span class="badge bg-success">可选</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <span class="badge bg-info">{{ variable[5] }} 个</span>
+                    </td>
+                    <td>
+                        <button class="btn btn-outline-primary btn-sm" onclick="editVariable({{ variable[0] }})">
+                            <i class="bi bi-pencil"></i> 编辑
+                        </button>
+                        <button class="btn btn-outline-danger btn-sm" onclick="deleteVariable({{ variable[0] }})">
+                            <i class="bi bi-trash"></i> 删除
+                        </button>
+                    </td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td colspan="6" class="text-center text-muted py-4">
+                        <i class="bi bi-database-x" style="font-size: 2rem;"></i><br>
+                        暂无变量数据<br>
+                        <small>上传模板时会自动创建变量</small>
+                    </td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+</div>
+
+<!-- 变量模态框 -->
+<div class="modal fade" id="variableModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="variableModalTitle">添加变量</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="variableForm">
+                    <input type="hidden" id="variableId">
+                    <div class="mb-3">
+                        <label for="variableName" class="form-label">变量名称 *</label>
+                        <input type="text" class="form-control" id="variableName" required>
+                        <div class="form-text">变量名称必须唯一</div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="dataType" class="form-label">数据类型</label>
+                        <select class="form-select" id="dataType">
+                            <option value="字符串">字符串</option>
+                            <option value="数字">数字</option>
+                            <option value="日期">日期</option>
+                            <option value="布尔值">布尔值</option>
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="exampleValue" class="form-label">示例值</label>
+                        <input type="text" class="form-control" id="exampleValue">
+                        <div class="form-text">为用户提供填写参考</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check">
+                            <input class="form-check-input" type="checkbox" id="isRequired">
+                            <label class="form-check-label" for="isRequired">
+                                必填字段
+                            </label>
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label for="description" class="form-label">描述</label>
+                        <textarea class="form-control" id="description" rows="3"></textarea>
+                        <div class="form-text">变量的详细说明</div>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="saveVariable()">保存</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function addVariable() {
+    document.getElementById('variableModalTitle').textContent = '添加变量';
+    document.getElementById('variableForm').reset();
+    document.getElementById('variableId').value = '';
+    $('#variableModal').modal('show');
+}
+
+function editVariable(variableId) {
+    document.getElementById('variableModalTitle').textContent = '编辑变量';
+    document.getElementById('variableId').value = variableId;
+    
+    // 获取变量详情并填充表单
+    fetch(`/get_variable/${variableId}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const variable = data.variable;
+                document.getElementById('variableName').value = variable.name;
+                document.getElementById('dataType').value = variable.data_type;
+                document.getElementById('exampleValue').value = variable.example_value || '';
+                document.getElementById('isRequired').checked = variable.is_required;
+                document.getElementById('description').value = variable.description || '';
+                
+                $('#variableModal').modal('show');
+            } else {
+                alert('获取变量详情失败: ' + data.message);
+            }
+        })
+        .catch(error => {
+            console.error('获取变量详情时发生错误:', error);
+            alert('获取变量详情失败，请稍后重试');
+        });
+}
+
+function saveVariable() {
+    const variableId = document.getElementById('variableId').value;
+    const variableName = document.getElementById('variableName').value;
+    const dataType = document.getElementById('dataType').value;
+    const exampleValue = document.getElementById('exampleValue').value;
+    const isRequired = document.getElementById('isRequired').checked;
+    const description = document.getElementById('description').value;
+    
+    if (!variableName.trim()) {
+        alert('请输入变量名称');
+        return;
+    }
+    
+    // 显示保存状态
+    const saveBtn = document.querySelector('#variableModal .btn-primary');
+    const originalText = saveBtn.textContent;
+    saveBtn.textContent = '保存中...';
+    saveBtn.disabled = true;
+    
+    const data = {
+        name: variableName.trim(),
+        data_type: dataType,
+        example_value: exampleValue.trim(),
+        is_required: isRequired,
+        description: description.trim()
+    };
+    
+    const url = variableId ? `/update_variable/${variableId}` : '/add_variable';
+    const method = 'POST';
+    
+    fetch(url, {
+        method: method,
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert(variableId ? '变量更新成功！' : '变量添加成功！');
+            $('#variableModal').modal('hide');
+            location.reload(); // 刷新页面
+        } else {
+            alert('保存失败：' + data.message);
+            // 恢复按钮状态
+            saveBtn.textContent = originalText;
+            saveBtn.disabled = false;
+        }
+    })
+    .catch(error => {
+        console.error('保存变量时发生错误:', error);
+        alert('保存失败，请稍后重试');
+        // 恢复按钮状态
+        saveBtn.textContent = originalText;
+        saveBtn.disabled = false;
+    });
+}
+
+function deleteVariable(variableId) {
+    if (confirm('确定要删除这个变量吗？删除后关联的模板可能无法正常使用。')) {
+        // 显示加载状态
+        const deleteBtn = event.target;
+        const originalText = deleteBtn.innerHTML;
+        deleteBtn.innerHTML = '删除中...';
+        deleteBtn.disabled = true;
+        
+        // 调用删除API
+        fetch(`/delete_variable/${variableId}`, {
+            method: 'DELETE',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('变量删除成功！');
+                location.reload(); // 刷新页面
+            } else {
+                alert('删除失败：' + data.message);
+                // 恢复按钮状态
+                deleteBtn.innerHTML = originalText;
+                deleteBtn.disabled = false;
+            }
+        })
+        .catch(error => {
+            console.error('删除变量时发生错误:', error);
+            alert('删除失败，请稍后重试');
+            // 恢复按钮状态
+            deleteBtn.innerHTML = originalText;
+            deleteBtn.disabled = false;
+        });
+    }
+}
+</script>
+{% endblock %}
