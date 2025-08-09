@@ -1,0 +1,143 @@
+{% extends "base.html" %}
+
+{% block title %}用户管理{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <div class="row">
+        <div class="col-12">
+            <div class="card">
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <h5 class="mb-0">用户管理</h5>
+                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
+                        <i class="fas fa-plus"></i> 创建用户
+                    </button>
+                </div>
+                <div class="card-body">
+                    <div class="table-responsive">
+                        <table class="table table-striped">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>用户名</th>
+                                    <th>邮箱</th>
+                                    <th>姓名</th>
+                                    <th>状态</th>
+                                    <th>角色</th>
+                                    <th>最后登录</th>
+                                    <th>创建时间</th>
+                                    <th>操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for user in users %}
+                                <tr>
+                                    <td>{{ user[0] }}</td>
+                                    <td>{{ user[1] }}</td>
+                                    <td>{{ user[2] or '-' }}</td>
+                                    <td>{{ user[3] or '-' }}</td>
+                                    <td>
+                                        {% if user[4] %}
+                                        <span class="badge bg-success">正常</span>
+                                        {% else %}
+                                        <span class="badge bg-danger">禁用</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>
+                                        {% if user[5] %}
+                                        <span class="badge bg-warning">管理员</span>
+                                        {% else %}
+                                        <span class="badge bg-info">普通用户</span>
+                                        {% endif %}
+                                    </td>
+                                    <td>{{ user[6] or '-' }}</td>
+                                    <td>{{ user[7] }}</td>
+                                    <td>
+                                        <button class="btn btn-sm btn-outline-primary">编辑</button>
+                                        <button class="btn btn-sm btn-outline-danger">删除</button>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 创建用户模态框 -->
+<div class="modal fade" id="createUserModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">创建新用户</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <form id="createUserForm">
+                    <div class="mb-3">
+                        <label for="newUsername" class="form-label">用户名</label>
+                        <input type="text" class="form-control" id="newUsername" name="username" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newPassword" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="newPassword" name="password" required>
+                    </div>
+                    <div class="mb-3">
+                        <label for="newEmail" class="form-label">邮箱</label>
+                        <input type="email" class="form-control" id="newEmail" name="email">
+                    </div>
+                    <div class="mb-3">
+                        <label for="newFullName" class="form-label">姓名</label>
+                        <input type="text" class="form-control" id="newFullName" name="full_name">
+                    </div>
+                    <div class="mb-3 form-check">
+                        <input type="checkbox" class="form-check-input" id="newIsAdmin" name="is_admin">
+                        <label class="form-check-label" for="newIsAdmin">管理员权限</label>
+                    </div>
+                </form>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary" onclick="createUser()">创建</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function createUser() {
+    const form = document.getElementById('createUserForm');
+    const formData = new FormData(form);
+    const data = {
+        username: formData.get('username'),
+        password: formData.get('password'),
+        email: formData.get('email'),
+        full_name: formData.get('full_name'),
+        is_admin: formData.get('is_admin') === 'on'
+    };
+    
+    fetch('/api/users', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(data)
+    })
+    .then(response => response.json())
+    .then(result => {
+        if (result.success) {
+            alert('用户创建成功');
+            location.reload();
+        } else {
+            alert('创建失败: ' + result.message);
+        }
+    })
+    .catch(error => {
+        alert('创建失败: ' + error.message);
+    });
+}
+</script>
+{% endblock %}

@@ -18,21 +18,11 @@ import sys
 import hashlib
 import hmac
 import base64
+from auth import UserAuth, login_required, permission_required
 
-# 移除用户认证模块导入
-
-# 获取应用程序的实际路径（支持PyInstaller打包）
+# 获取应用程序的实际路径
 def get_app_path():
-    if getattr(sys, 'frozen', False):
-        # PyInstaller打包后的环境
-        return os.path.dirname(sys.executable)
-    else:
-        # 开发环境
-        return os.path.dirname(os.path.abspath(__file__))
-
-# 设置工作目录为可执行文件所在目录
-app_path = get_app_path()
-os.chdir(app_path)
+    return os.path.dirname(os.path.abspath(__file__))
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -108,6 +98,79 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # 用户表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            email TEXT UNIQUE,
+            password_hash TEXT NOT NULL,
+            salt TEXT NOT NULL,
+            full_name TEXT,
+            is_active BOOLEAN DEFAULT 1,
+            is_admin BOOLEAN DEFAULT 0,
+            last_login TIMESTAMP,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # 用户会话表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            session_token TEXT UNIQUE NOT NULL,
+            expires_at TIMESTAMP NOT NULL,
+            ip_address TEXT,
+            user_agent TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # 权限表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT UNIQUE NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # 角色权限关联表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS role_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER NOT NULL,
+            permission_name TEXT NOT NULL,
+            granted_by INTEGER,
+            granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (user_id) REFERENCES users (id),
+            FOREIGN KEY (granted_by) REFERENCES users (id)
+        )
+    ''')
+    
+    # 插入基础权限
+    permissions = [
+        ('view_templates', '查看模板'),
+        ('manage_templates', '管理模板'),
+        ('view_projects', '查看项目'),
+        ('manage_projects', '管理项目'),
+        ('view_variables', '查看变量'),
+        ('manage_variables', '管理变量'),
+        ('view_logs', '查看日志'),
+        ('manage_users', '管理用户'),
+        ('system_admin', '系统管理员')
+    ]
+    
+    for perm_name, perm_desc in permissions:
+        cursor.execute('''
+            INSERT OR IGNORE INTO permissions (name, description)
+            VALUES (?, ?)
+        ''', (perm_name, perm_desc))
     
     # 变量数据库表
     cursor.execute('''
@@ -305,6 +368,94 @@ class ActivationValidator:
 
 # 全局激活验证器实例
 activation_validator = ActivationValidator()
+
+# 初始化用户认证
+auth = UserAuth(os.path.join(app_path, 'system.db'))
+
+# 登录页面
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        username = request.form.get('username')
+        password = request.form.get('password')
+        
+        if not username or not password:
+            return render_template('login.html', error='请输入用户名和密码')
+        
+        result = auth.authenticate_user(username, password)
+        
+        if result['success']:
+            user = result['user']
+            session['user_id'] = user['id']
+            session['username'] = user['username']
+            session['full_name'] = user['full_name']
+            session['is_admin'] = user['is_admin']
+            
+            # 创建会话记录
+            session_token = auth.create_session(
+                user['id'],
+                request.remote_addr,
+                request.headers.get('User-Agent')
+            )
+            session['session_token'] = session_token
+            
+            # 记录登录日志
+            log_operation('用户登录', f'用户 {username} 登录系统', username)
+            
+            return redirect(url_for('index'))
+        else:
+            return render_template('login.html', error=result['message'])
+    
+    return render_template('login.html')
+
+# 登出
+@app.route('/logout')
+def logout():
+    username = session.get('username', '未知用户')
+    session.clear()
+    log_operation('用户登出', f'用户 {username} 登出系统', username)
+    return redirect(url_for('login'))
+
+# 用户管理页面
+@app.route('/users')
+@login_required
+@permission_required('manage_users')
+def users():
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    
+    cursor.execute('''
+        SELECT id, username, email, full_name, is_active, is_admin, last_login, created_at
+        FROM users
+        ORDER BY created_at DESC
+    ''')
+    users = cursor.fetchall()
+    
+    conn.close()
+    return render_template('users.html', users=users)
+
+# 创建用户API
+@app.route('/api/users', methods=['POST'])
+@login_required
+@permission_required('manage_users')
+def create_user():
+    data = request.get_json()
+    
+    username = data.get('username')
+    password = data.get('password')
+    email = data.get('email')
+    full_name = data.get('full_name')
+    is_admin = data.get('is_admin', False)
+    
+    if not username or not password:
+        return jsonify({'success': False, 'message': '用户名和密码不能为空'})
+    
+    result = auth.create_user(username, password, email, full_name, is_admin)
+    
+    if result['success']:
+        log_operation('创建用户', f'创建用户: {username}', session.get('username'))
+    
+    return jsonify(result)
 
 # 检查系统激活状态
 def check_system_activation():
@@ -735,6 +886,7 @@ def log_operation(operation_type, description, user_name='系统用户'):
 
 # 首页路由
 @app.route('/')
+@login_required
 def index():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -756,6 +908,8 @@ def index():
 
 # 模板管理页面
 @app.route('/templates')
+@login_required
+@permission_required('view_templates')
 def templates():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1120,6 +1274,8 @@ def delete_variable(variable_id):
 
 # 项目数据管理页面
 @app.route('/projects')
+@login_required
+@permission_required('view_projects')
 def projects():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -2541,32 +2697,13 @@ def signal_handler(signum, frame):
     os._exit(0)
 
 def setup_console_handler():
-    """设置控制台关闭处理器（仅Windows）"""
-    try:
-        import platform
-        if platform.system() == 'Windows':
-            import ctypes
-            from ctypes import wintypes
-            
-            # 定义控制台事件处理函数
-            def console_handler(event_type):
-                if event_type in (0, 2):  # CTRL_C_EVENT 或 CTRL_CLOSE_EVENT
-                    print("\n检测到控制台关闭，正在退出系统...")
-                    os._exit(0)
-                return True
-            
-            # 设置控制台处理器
-            HANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
-            handler = HANDLER_ROUTINE(console_handler)
-            ctypes.windll.kernel32.SetConsoleCtrlHandler(handler, True)
-    except Exception:
-        pass  # 忽略设置错误
+    """设置控制台关闭处理器（已移除Windows特定代码）"""
+    pass
 
 if __name__ == '__main__':
     init_db()
     
-    # 检查是否为打包环境或Docker环境
-    is_packaged = getattr(sys, 'frozen', False)
+    # 检查是否为Docker环境
     is_docker = os.environ.get('FLASK_ENV') == 'production'
     
     # 注册信号处理器
@@ -2574,12 +2711,10 @@ if __name__ == '__main__':
     try:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
-        if is_packaged:
-            setup_console_handler()  # 在打包环境下设置控制台处理器
     except Exception:
         pass  # 忽略信号注册错误
     
-    if not is_packaged and not is_docker:
+    if not is_docker:
         # 开发环境下显示启动信息
         print("========================================")
         print("    智汇填报系统")
@@ -2592,25 +2727,9 @@ if __name__ == '__main__':
         
         # 在新线程中打开浏览器（仅在非Docker环境）
         threading.Thread(target=open_browser, daemon=True).start()
-    elif is_packaged:
-        # 打包环境下显示启动信息并自动打开浏览器
-        print("========================================")
-        print("    智汇填报系统")
-        print("========================================")
-        print("系统正在启动，请稍候...")
-        print("系统启动后将自动打开浏览器")
-        print("如果浏览器未自动打开，请手动访问: http://localhost:5000")
-        print("关闭此窗口将退出系统")
-        print("========================================")
-        
-        # 在新线程中打开浏览器
-        threading.Thread(target=open_browser, daemon=True).start()
     
     # 启动Flask应用
     import logging
-    if is_packaged:
-        # 打包环境下减少日志输出但保持基本信息
-        logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
     # 从环境变量获取端口和调试模式设置
     port = int(os.environ.get('PORT', 5000))
@@ -2622,6 +2741,4 @@ if __name__ == '__main__':
         print("\n系统已退出")
     except Exception as e:
         print(f"系统启动失败: {e}")
-        if is_packaged:
-            input("按回车键退出...")
         sys.exit(1)
