@@ -2505,7 +2505,7 @@ def favicon():
 def open_browser():
     """延迟打开浏览器"""
     time.sleep(1.5)  # 等待服务器启动
-    webbrowser.open('http://localhost:8080')  # 修改端口号
+    webbrowser.open('http://localhost:5000')  # 改为5000端口
 
 def shutdown_server():
     """优雅关闭服务器"""
@@ -2599,7 +2599,7 @@ if __name__ == '__main__':
         print("========================================")
         print("系统正在启动，请稍候...")
         print("系统启动后将自动打开浏览器")
-        print("如果浏览器未自动打开，请手动访问: http://localhost:1987")
+        print("如果浏览器未自动打开，请手动访问: http://localhost:5000")
         print("关闭此窗口将退出系统")
         print("========================================")
         
