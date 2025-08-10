@@ -143,11 +143,11 @@ copy_project_files() {
     # 获取脚本所在目录
     SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
     
-    # 复制所有必要文件
-    cp -r "$SCRIPT_DIR"/* .
+    # 复制所有必要文件到应用目录
+    cp -r "$SCRIPT_DIR"/* "$APP_DIR/"
     
     # 删除不需要的文件
-    rm -f install_linux.sh
+    rm -f "$APP_DIR/install_linux.sh"
     
     log_success "项目文件复制完成"
 }
@@ -156,6 +156,7 @@ copy_project_files() {
 setup_python_env() {
     log_info "创建Python虚拟环境..."
     
+    cd "$APP_DIR"
     python3 -m venv venv
     source venv/bin/activate
     
@@ -172,6 +173,7 @@ setup_python_env() {
 init_database() {
     log_info "初始化数据库..."
     
+    cd "$APP_DIR"
     source venv/bin/activate
     python reset_database.py
     
