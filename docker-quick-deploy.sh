@@ -74,8 +74,67 @@ create_directories() {
 # 拉取镜像
 pull_image() {
     log_info "拉取最新 Docker 镜像..."
-    docker-compose pull
-    log_success "镜像拉取完成"
+    if ! docker-compose pull; then
+        log_warning "Docker 镜像拉取失败，尝试本地构建..."
+        log_info "下载项目源码进行本地构建..."
+        
+        # 下载 Dockerfile
+        if ! wget -O dockerfile https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/dockerfile; then
+            log_error "无法下载 Dockerfile！"
+            exit 1
+        fi
+        
+        # 下载 requirements.txt
+        if ! wget -O requirements.txt https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/requirements.txt; then
+            log_error "无法下载 requirements.txt！"
+            exit 1
+        fi
+        
+        # 创建临时目录并下载源码
+        mkdir -p temp_build
+        cd temp_build
+        
+        # 下载主要文件
+        log_info "下载应用源码..."
+        wget -O app.py https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/app.py
+        wget -O auth.py https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/auth.py
+        
+        # 下载静态文件
+        mkdir -p static/css static/js
+        wget -O static/css/bootstrap.min.css https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/css/bootstrap.min.css
+        wget -O static/css/bootstrap-icons.css https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/css/bootstrap-icons.css
+        wget -O static/css/animate.min.css https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/css/animate.min.css
+        wget -O static/js/bootstrap.bundle.min.js https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/js/bootstrap.bundle.min.js
+        wget -O static/js/jquery.min.js https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/js/jquery.min.js
+        wget -O static/lx.jpg https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/lx.jpg
+        
+        # 下载模板文件
+        mkdir -p templates
+        for template in base.html index.html login.html register.html users.html projects.html data_management.html templates.html variables.html logs.html help.html about.html; do
+            wget -O templates/$template https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/$template
+        done
+        
+        # 复制 Dockerfile 和 requirements.txt
+        cp ../dockerfile .
+        cp ../requirements.txt .
+        
+        # 本地构建镜像
+        log_info "开始本地构建 Docker 镜像..."
+        if ! docker build -t wsndy666/zdtb-system:latest .; then
+            log_error "Docker 镜像构建失败！"
+            cd ..
+            rm -rf temp_build
+            exit 1
+        fi
+        
+        # 清理临时文件
+        cd ..
+        rm -rf temp_build dockerfile requirements.txt
+        
+        log_success "Docker 镜像本地构建完成"
+    else
+        log_success "镜像拉取完成"
+    fi
 }
 
 # 启动服务
