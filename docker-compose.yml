@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  zdtb-system:
+    build: .
+    container_name: zdtb-system
+    ports:
+      - "5000:5000"
+    volumes:
+      - ./data:/app/data
+      - ./system.db:/app/system.db
+    environment:
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - zdtb-network
+
+networks:
+  zdtb-network:
+    driver: bridge
+
+volumes:
+  zdtb-data:
+    driver: local
