@@ -90,7 +90,7 @@ check_old_version() {
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
             log_info "删除现有应用目录..."
-            sudo rm -rf $APP_DIR
+            $SUDO_CMD rm -rf $APP_DIR
             log_success "现有目录已删除"
         else
             log_error "安装已取消"
@@ -107,15 +107,15 @@ install_dependencies() {
     
     if [[ "$OS" == *"Ubuntu"* ]] || [[ "$OS" == *"Debian"* ]]; then
         # Ubuntu/Debian 系统
-        sudo apt update
-        sudo apt install -y python3 python3-pip python3-venv git curl wget
-        sudo apt install -y build-essential libssl-dev libffi-dev python3-dev
+        $SUDO_CMD apt update
+        $SUDO_CMD apt install -y python3 python3-pip python3-venv git curl wget
+        $SUDO_CMD apt install -y build-essential libssl-dev libffi-dev python3-dev
     elif [[ "$OS" == *"CentOS"* ]] || [[ "$OS" == *"Red Hat"* ]] || [[ "$OS" == *"Rocky"* ]]; then
         # CentOS/RHEL 系统
-        sudo yum update -y
-        sudo yum install -y python3 python3-pip git curl wget
-        sudo yum groupinstall -y "Development Tools"
-        sudo yum install -y openssl-devel libffi-devel python3-devel
+        $SUDO_CMD yum update -y
+        $SUDO_CMD yum install -y python3 python3-pip git curl wget
+        $SUDO_CMD yum groupinstall -y "Development Tools"
+        $SUDO_CMD yum install -y openssl-devel libffi-devel python3-devel
     else
         log_error "不支持的操作系统: $OS"
         exit 1
@@ -129,8 +129,10 @@ setup_directory() {
     APP_DIR="/opt/zdtb-system"
     log_info "创建应用目录: $APP_DIR"
     
-    sudo mkdir -p $APP_DIR
-    sudo chown $USER:$USER $APP_DIR
+    $SUDO_CMD mkdir -p $APP_DIR
+    if [ "$EUID" -ne 0 ]; then
+        $SUDO_CMD chown $USER:$USER $APP_DIR
+    fi
     cd $APP_DIR
     
     log_success "应用目录创建完成"
@@ -184,14 +186,20 @@ init_database() {
 create_systemd_service() {
     log_info "创建systemd服务..."
     
-    sudo tee /etc/systemd/system/zdtb-system.service > /dev/null <<EOF
+    if [ "$EUID" -eq 0 ]; then
+        SERVICE_USER="root"
+    else
+        SERVICE_USER="$USER"
+    fi
+    
+    $SUDO_CMD tee /etc/systemd/system/zdtb-system.service > /dev/null <<EOF
 [Unit]
 Description=智汇填报系统
 After=network.target
 
 [Service]
 Type=simple
-User=$USER
+User=$SERVICE_USER
 WorkingDirectory=$APP_DIR
 Environment=PATH=$APP_DIR/venv/bin
 ExecStart=$APP_DIR/venv/bin/python app.py
@@ -203,8 +211,8 @@ WantedBy=multi-user.target
 EOF
     
     # 重新加载systemd配置
-    sudo systemctl daemon-reload
-    sudo systemctl enable zdtb-system
+    $SUDO_CMD systemctl daemon-reload
+    $SUDO_CMD systemctl enable zdtb-system
     
     log_success "systemd服务创建完成"
 }
@@ -215,12 +223,12 @@ setup_firewall() {
     
     if command -v ufw >/dev/null 2>&1; then
         # Ubuntu/Debian 使用 ufw
-        sudo ufw allow 5000/tcp
+        $SUDO_CMD ufw allow 5000/tcp
         log_success "UFW防火墙规则已添加"
     elif command -v firewall-cmd >/dev/null 2>&1; then
         # CentOS/RHEL 使用 firewalld
-        sudo firewall-cmd --permanent --add-port=5000/tcp
-        sudo firewall-cmd --reload
+        $SUDO_CMD firewall-cmd --permanent --add-port=5000/tcp
+        $SUDO_CMD firewall-cmd --reload
         log_success "firewalld防火墙规则已添加"
     else
         log_warning "未检测到防火墙管理工具，请手动开放5000端口"
@@ -231,13 +239,13 @@ setup_firewall() {
 start_service() {
     log_info "启动智汇填报系统服务..."
     
-    sudo systemctl start zdtb-system
+    $SUDO_CMD systemctl start zdtb-system
     sleep 3
     
-    if sudo systemctl is-active --quiet zdtb-system; then
+    if $SUDO_CMD systemctl is-active --quiet zdtb-system; then
         log_success "服务启动成功"
     else
-        log_error "服务启动失败，请检查日志: sudo journalctl -u zdtb-system -f"
+        log_error "服务启动失败，请检查日志: $SUDO_CMD journalctl -u zdtb-system -f"
         exit 1
     fi
 }
@@ -261,11 +269,19 @@ show_completion_info() {
     echo "   ⚠️  请登录后立即修改默认密码！"
     echo
     echo "🔧 常用命令:"
-    echo "   • 查看服务状态: sudo systemctl status zdtb-system"
-    echo "   • 启动服务: sudo systemctl start zdtb-system"
-    echo "   • 停止服务: sudo systemctl stop zdtb-system"
-    echo "   • 重启服务: sudo systemctl restart zdtb-system"
-    echo "   • 查看日志: sudo journalctl -u zdtb-system -f"
+    if [ "$EUID" -eq 0 ]; then
+        echo "   • 查看服务状态: systemctl status zdtb-system"
+        echo "   • 启动服务: systemctl start zdtb-system"
+        echo "   • 停止服务: systemctl stop zdtb-system"
+        echo "   • 重启服务: systemctl restart zdtb-system"
+        echo "   • 查看日志: journalctl -u zdtb-system -f"
+    else
+        echo "   • 查看服务状态: sudo systemctl status zdtb-system"
+        echo "   • 启动服务: sudo systemctl start zdtb-system"
+        echo "   • 停止服务: sudo systemctl stop zdtb-system"
+        echo "   • 重启服务: sudo systemctl restart zdtb-system"
+        echo "   • 查看日志: sudo journalctl -u zdtb-system -f"
+    fi
     echo
     echo "📁 项目文件位置: $APP_DIR"
     echo "📊 数据库文件: $APP_DIR/system.db"
@@ -280,17 +296,19 @@ main() {
     echo "======================================"
     echo
     
-    # 检查是否为root用户
+    # 检查用户权限
     if [ "$EUID" -eq 0 ]; then
-        log_error "请不要使用root用户运行此脚本"
-        log_info "请使用普通用户运行: ./install_linux.sh"
-        exit 1
-    fi
-    
-    # 检查sudo权限
-    if ! sudo -n true 2>/dev/null; then
-        log_info "此脚本需要sudo权限来安装系统依赖"
-        sudo -v
+        log_warning "检测到以root用户运行脚本"
+        log_info "将以root权限执行所有操作"
+        SUDO_CMD=""
+    else
+        log_info "检测到以普通用户运行脚本"
+        # 检查sudo权限
+        if ! sudo -n true 2>/dev/null; then
+            log_info "此脚本需要sudo权限来安装系统依赖"
+            sudo -v
+        fi
+        SUDO_CMD="sudo"
     fi
     
     detect_os
