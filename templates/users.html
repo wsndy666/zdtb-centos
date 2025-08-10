@@ -3,61 +3,34 @@
 {% block title %}用户管理{% endblock %}
 
 {% block content %}
-<div class="container-fluid">
+<div class="container-fluid mt-4">
     <div class="row">
         <div class="col-12">
             <div class="card">
                 <div class="card-header d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">用户管理</h5>
-                    <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createUserModal">
-                        <i class="fas fa-plus"></i> 创建用户
+                    <h5 class="mb-0"><i class="bi bi-people"></i> 用户管理</h5>
+                    <button class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addUserModal">
+                        <i class="bi bi-person-plus"></i> 添加用户
                     </button>
                 </div>
                 <div class="card-body">
                     <div class="table-responsive">
-                        <table class="table table-striped">
-                            <thead>
+                        <table class="table table-striped table-hover" id="usersTable">
+                            <thead class="table-dark">
                                 <tr>
                                     <th>ID</th>
                                     <th>用户名</th>
                                     <th>邮箱</th>
-                                    <th>姓名</th>
-                                    <th>状态</th>
                                     <th>角色</th>
-                                    <th>最后登录</th>
                                     <th>创建时间</th>
+                                    <th>最后登录</th>
+                                    <th>账号状态</th>
+                                    <th>激活状态</th>
                                     <th>操作</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {% for user in users %}
-                                <tr>
-                                    <td>{{ user[0] }}</td>
-                                    <td>{{ user[1] }}</td>
-                                    <td>{{ user[2] or '-' }}</td>
-                                    <td>{{ user[3] or '-' }}</td>
-                                    <td>
-                                        {% if user[4] %}
-                                        <span class="badge bg-success">正常</span>
-                                        {% else %}
-                                        <span class="badge bg-danger">禁用</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>
-                                        {% if user[5] %}
-                                        <span class="badge bg-warning">管理员</span>
-                                        {% else %}
-                                        <span class="badge bg-info">普通用户</span>
-                                        {% endif %}
-                                    </td>
-                                    <td>{{ user[6] or '-' }}</td>
-                                    <td>{{ user[7] }}</td>
-                                    <td>
-                                        <button class="btn btn-sm btn-outline-primary">编辑</button>
-                                        <button class="btn btn-sm btn-outline-danger">删除</button>
-                                    </td>
-                                </tr>
-                                {% endfor %}
+                                <!-- 用户数据将通过AJAX加载 -->
                             </tbody>
                         </table>
                     </div>
@@ -67,77 +40,241 @@
     </div>
 </div>
 
-<!-- 创建用户模态框 -->
-<div class="modal fade" id="createUserModal" tabindex="-1">
+<!-- 添加用户模态框 -->
+<div class="modal fade" id="addUserModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">创建新用户</h5>
+                <h5 class="modal-title">添加用户</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <form id="createUserForm">
+                <form id="addUserForm">
                     <div class="mb-3">
                         <label for="newUsername" class="form-label">用户名</label>
-                        <input type="text" class="form-control" id="newUsername" name="username" required>
-                    </div>
-                    <div class="mb-3">
-                        <label for="newPassword" class="form-label">密码</label>
-                        <input type="password" class="form-control" id="newPassword" name="password" required>
+                        <input type="text" class="form-control" id="newUsername" name="username" required 
+                               minlength="3" maxlength="20" pattern="[a-zA-Z0-9_]+">
+                        <div class="form-text">3-20个字符，只能包含字母、数字和下划线</div>
                     </div>
                     <div class="mb-3">
                         <label for="newEmail" class="form-label">邮箱</label>
-                        <input type="email" class="form-control" id="newEmail" name="email">
+                        <input type="email" class="form-control" id="newEmail" name="email" required>
                     </div>
                     <div class="mb-3">
-                        <label for="newFullName" class="form-label">姓名</label>
-                        <input type="text" class="form-control" id="newFullName" name="full_name">
+                        <label for="newPassword" class="form-label">密码</label>
+                        <input type="password" class="form-control" id="newPassword" name="password" required 
+                               minlength="8">
+                        <div class="form-text">至少8个字符，必须包含大小写字母、数字和特殊字符</div>
                     </div>
-                    <div class="mb-3 form-check">
-                        <input type="checkbox" class="form-check-input" id="newIsAdmin" name="is_admin">
-                        <label class="form-check-label" for="newIsAdmin">管理员权限</label>
+                    <div class="mb-3">
+                        <label for="newRole" class="form-label">角色</label>
+                        <select class="form-select" id="newRole" name="role" required>
+                            <option value="user">普通用户</option>
+                            <option value="admin">管理员</option>
+                        </select>
                     </div>
                 </form>
             </div>
             <div class="modal-footer">
                 <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
-                <button type="button" class="btn btn-primary" onclick="createUser()">创建</button>
+                <button type="button" class="btn btn-primary" id="saveUserBtn">保存</button>
             </div>
         </div>
     </div>
 </div>
 
 <script>
-function createUser() {
-    const form = document.getElementById('createUserForm');
-    const formData = new FormData(form);
-    const data = {
-        username: formData.get('username'),
-        password: formData.get('password'),
-        email: formData.get('email'),
-        full_name: formData.get('full_name'),
-        is_admin: formData.get('is_admin') === 'on'
-    };
+document.addEventListener('DOMContentLoaded', function() {
+    loadUsers();
     
-    fetch('/api/users', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(data)
-    })
-    .then(response => response.json())
-    .then(result => {
-        if (result.success) {
-            alert('用户创建成功');
-            location.reload();
-        } else {
-            alert('创建失败: ' + result.message);
+    // 加载用户列表
+    function loadUsers() {
+        // 同时获取用户列表和激活状态
+        Promise.all([
+            fetch('/api/users').then(response => response.json()),
+            fetch('/api/admin/users/activation').then(response => response.json())
+        ])
+        .then(([usersData, activationData]) => {
+            if (usersData.success && activationData.success) {
+                // 合并用户数据和激活状态
+                const usersWithActivation = usersData.users.map(user => {
+                    const activationInfo = activationData.users.find(u => u.id === user[0]);
+                    // 保持数组格式，只添加激活信息
+                    const userWithActivation = [...user];
+                    userWithActivation.activation = activationInfo || {};
+                    return userWithActivation;
+                });
+                renderUsersTable(usersWithActivation);
+            } else {
+                showAlert('加载用户列表失败', 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('加载用户列表失败', 'danger');
+            console.error('Error:', error);
+        });
+    }
+    
+    // 渲染用户表格
+    function renderUsersTable(users) {
+        const tbody = document.querySelector('#usersTable tbody');
+        tbody.innerHTML = '';
+        
+        users.forEach(function(user) {
+            // 处理用户基本信息（兼容新旧数据格式）
+            const userId = Array.isArray(user) ? user[0] : user.id;
+            const username = Array.isArray(user) ? user[1] : user.username;
+            const email = Array.isArray(user) ? user[2] : user.email;
+            const role = Array.isArray(user) ? user[3] : user.role;
+            const createdAt = Array.isArray(user) ? user[4] : user.created_at;
+            const lastLogin = Array.isArray(user) ? user[5] : user.last_login;
+            const isActive = Array.isArray(user) ? user[6] : user.is_active;
+            
+            // 账号状态
+            const statusBadge = isActive ? 
+                '<span class="badge bg-success">正常</span>' : 
+                '<span class="badge bg-danger">禁用</span>';
+            
+            // 角色显示
+            const roleBadge = role === 'admin' ? 
+                '<span class="badge bg-primary">管理员</span>' : 
+                '<span class="badge bg-secondary">普通用户</span>';
+            
+            // 激活状态
+            const activation = user.activation || {};
+            let activationBadge = '<span class="badge bg-warning">未激活</span>';
+            let activationInfo = '';
+            
+            if (activation.is_activated) {
+                if (activation.expired) {
+                    activationBadge = '<span class="badge bg-danger">已过期</span>';
+                    activationInfo = `<small class="text-muted d-block">过期时间：${new Date(activation.expire_date).toLocaleDateString()}</small>`;
+                } else {
+                    activationBadge = '<span class="badge bg-success">已激活</span>';
+                    const daysRemaining = activation.days_remaining;
+                    if (daysRemaining !== null) {
+                        activationInfo = `<small class="text-muted d-block">剩余：${daysRemaining}天</small>`;
+                    }
+                }
+            }
+            
+            const lastLoginText = lastLogin ? new Date(lastLogin).toLocaleString() : '从未登录';
+            const createdAtText = new Date(createdAt).toLocaleString();
+            
+            const toggleText = isActive ? '禁用' : '启用';
+            const toggleClass = isActive ? 'btn-warning' : 'btn-success';
+            
+            const row = `
+                <tr>
+                    <td>${userId}</td>
+                    <td>${username}</td>
+                    <td>${email}</td>
+                    <td>${roleBadge}</td>
+                    <td>${createdAtText}</td>
+                    <td>${lastLoginText}</td>
+                    <td>${statusBadge}</td>
+                    <td>${activationBadge}${activationInfo}</td>
+                    <td>
+                        <button class="btn btn-sm ${toggleClass}" onclick="toggleUserStatus(${userId})">
+                            <i class="bi bi-toggle-${isActive ? 'on' : 'off'}"></i> ${toggleText}
+                        </button>
+                    </td>
+                </tr>
+            `;
+            tbody.innerHTML += row;
+        });
+    }
+    
+    // 保存新用户
+    document.getElementById('saveUserBtn').addEventListener('click', function() {
+        const formData = {
+            username: document.getElementById('newUsername').value,
+            email: document.getElementById('newEmail').value,
+            password: document.getElementById('newPassword').value,
+            role: document.getElementById('newRole').value
+        };
+        
+        // 基本验证
+        if (!formData.username || !formData.email || !formData.password) {
+            showAlert('请填写所有必填字段', 'danger');
+            return;
         }
-    })
-    .catch(error => {
-        alert('创建失败: ' + error.message);
+        
+        fetch('/api/users', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(formData)
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const modal = bootstrap.Modal.getInstance(document.getElementById('addUserModal'));
+                modal.hide();
+                document.getElementById('addUserForm').reset();
+                loadUsers();
+                showAlert('用户创建成功', 'success');
+            } else {
+                // 处理错误信息，优先使用error字段，其次使用message字段
+                const errorMessage = data.error || data.message || '创建用户失败';
+                showAlert(errorMessage, 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('创建用户失败', 'danger');
+            console.error('Error:', error);
+        });
     });
+    
+    function showAlert(message, type) {
+        // 移除现有的alert
+        const existingAlerts = document.querySelectorAll('.alert');
+        existingAlerts.forEach(alert => alert.remove());
+        
+        const alertHtml = `
+            <div class="alert alert-${type} alert-dismissible fade show" role="alert">
+                ${message}
+                <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+            </div>
+        `;
+        const cardBody = document.querySelector('.card-body');
+        cardBody.insertAdjacentHTML('afterbegin', alertHtml);
+        
+        setTimeout(function() {
+            const alerts = document.querySelectorAll('.alert');
+            alerts.forEach(alert => {
+                alert.style.opacity = '0';
+                setTimeout(() => alert.remove(), 300);
+            });
+        }, 3000);
+    }
+    
+    // 全局函数，供HTML调用
+    window.showAlert = showAlert;
+    window.loadUsers = loadUsers;
+});
+
+// 切换用户状态
+function toggleUserStatus(userId) {
+    if (confirm('确定要切换该用户的状态吗？')) {
+        fetch(`/api/users/${userId}/toggle`, {
+            method: 'POST'
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                loadUsers();
+                showAlert('用户状态已更新', 'success');
+            } else {
+                showAlert('更新用户状态失败', 'danger');
+            }
+        })
+        .catch(error => {
+            showAlert('更新用户状态失败', 'danger');
+            console.error('Error:', error);
+        });
+    }
 }
 </script>
 {% endblock %}

@@ -1,178 +1,68 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
 *.so
-*.egg
-*.egg-info/
-dist/
+.Python
 build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+PYTHONPATH
+
+# Virtual Environment
 .venv/
 venv/
-.env
+ENV/
+env/
 
-# 数据库文件
-*.db
+# Database
 *.db.backup_*
 
-# 上传和输出文件
+# Temporary files
+temp/
 uploads/
 output/
-temp/
 
-# 日志文件
-logs/
-*.log
-
-# IDE文件
+# IDE
 .vscode/
 .idea/
 *.swp
 *.swo
+*~
 
-# 系统文件
+# OS
 .DS_Store
 Thumbs.db
 
-# 打包文件
-*.zip
+# Logs
+*.log
 
-# Vercel
-.vercel/
+# Package files
+*.spec
+*.exe
+*.msi
+*.dmg
+*.pkg
+*.deb
+*.rpm
 
-# 激活码相关文件（安全考虑，不上传到GitHub）
+# Activation Code System (Commercial Secret)
 activation_generator.py
 activation_manager.py
-test_activation.py
+activation_validator.py
+启动激活码管理工具.bat
 激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 打包文件
-*.zip
-
-# Vercel
-.vercel/
-
-# 激活码相关文件（安全考虑，不上传到GitHub）
-activation_generator.py
-activation_manager.py
-test_activation.py
-激活码使用说明.md
-
-# 中文文档（可选，如果不想上传）
-# *.md
+激活码生成器.spec
+激活码管理工具.spec

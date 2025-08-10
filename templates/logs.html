@@ -10,9 +10,51 @@
             <button type="button" class="btn btn-outline-secondary" onclick="exportLogs()">
                 <i class="bi bi-download"></i> 导出日志
             </button>
-            <button type="button" class="btn btn-outline-danger" onclick="clearLogs()">
-                <i class="bi bi-trash"></i> 清空日志
-            </button>
+            <div class="btn-group" role="group">
+                <button type="button" class="btn btn-outline-warning dropdown-toggle" data-bs-toggle="dropdown">
+                    <i class="bi bi-trash"></i> 清理日志
+                </button>
+                <ul class="dropdown-menu">
+                    <li><a class="dropdown-item" href="#" onclick="clearLogs('old')">清理30天前日志</a></li>
+                    <li><a class="dropdown-item" href="#" onclick="clearLogs('all')">清空所有日志</a></li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 日志统计信息 -->
+<div class="row mb-4" id="logStats" style="display: none;">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-primary">总日志数</h5>
+                <h3 class="card-text" id="totalLogs">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-success">今日日志</h5>
+                <h3 class="card-text" id="todayLogs">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-warning">30天前日志</h5>
+                <h3 class="card-text" id="oldLogs">-</h3>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <h5 class="card-title text-info">日志时间范围</h5>
+                <small class="card-text" id="logTimeRange">-</small>
+            </div>
         </div>
     </div>
 </div>
@@ -216,25 +258,65 @@ function exportLogs() {
     window.location.href = url;
 }
 
-function clearLogs() {
-    if (confirm('确定要清空所有操作日志吗？此操作无法撤销。')) {
+function clearLogs(type = 'all') {
+    let confirmMessage = '';
+    if (type === 'all') {
+        confirmMessage = '确定要清空所有操作日志吗？此操作无法撤销。';
+    } else {
+        confirmMessage = '确定要清理30天前的操作日志吗？';
+    }
+    
+    if (confirm(confirmMessage)) {
         fetch('/clear_logs', {
-            method: 'POST'
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ type: type })
         })
         .then(response => response.json())
         .then(data => {
             if (data.success) {
-                alert('日志清空成功！');
+                alert(data.message);
                 location.reload();
             } else {
-                alert('清空失败: ' + data.message);
+                alert('清理失败: ' + data.message);
             }
         })
         .catch(error => {
             console.error('Error:', error);
-            alert('清空失败');
+            alert('清理失败');
         });
     }
+}
+
+// 加载日志统计信息
+function loadLogStats() {
+    fetch('/api/logs/stats')
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                const stats = data.stats;
+                document.getElementById('totalLogs').textContent = stats.total_logs.toLocaleString();
+                document.getElementById('todayLogs').textContent = stats.today_logs.toLocaleString();
+                document.getElementById('oldLogs').textContent = stats.old_logs.toLocaleString();
+                
+                // 格式化时间范围
+                if (stats.earliest_log && stats.latest_log) {
+                    const earliest = new Date(stats.earliest_log).toLocaleDateString();
+                    const latest = new Date(stats.latest_log).toLocaleDateString();
+                    document.getElementById('logTimeRange').textContent = `${earliest} - ${latest}`;
+                } else {
+                    document.getElementById('logTimeRange').textContent = '暂无数据';
+                }
+                
+                // 显示统计信息区域
+                document.getElementById('logStats').style.display = 'block';
+            }
+        })
+        .catch(error => {
+            console.error('Error loading stats:', error);
+        });
 }
 
 // 页面加载时设置今天的日期为默认值
@@ -243,6 +325,9 @@ document.addEventListener('DOMContentLoaded', function() {
     // 可以选择是否默认筛选今天的日志
     // document.getElementById('dateFilter').value = today;
     // filterLogs();
+    
+    // 加载日志统计信息
+    loadLogStats();
 });
 </script>
 {% endblock %}

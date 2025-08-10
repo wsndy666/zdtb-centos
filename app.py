@@ -18,11 +18,22 @@ import sys
 import hashlib
 import hmac
 import base64
-from auth import UserAuth, login_required, permission_required
 
-# 获取应用程序的实际路径
+# 导入用户认证模块
+from auth import UserManager, login_required, permission_required, admin_required
+
+# 获取应用程序的实际路径（支持PyInstaller打包）
 def get_app_path():
-    return os.path.dirname(os.path.abspath(__file__))
+    if getattr(sys, 'frozen', False):
+        # PyInstaller打包后的环境
+        return os.path.dirname(sys.executable)
+    else:
+        # 开发环境
+        return os.path.dirname(os.path.abspath(__file__))
+
+# 设置工作目录为可执行文件所在目录
+app_path = get_app_path()
+os.chdir(app_path)
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your-secret-key-here'
@@ -98,79 +109,6 @@ def get_db_connection():
 def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
-    
-    # 用户表
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            email TEXT UNIQUE,
-            password_hash TEXT NOT NULL,
-            salt TEXT NOT NULL,
-            full_name TEXT,
-            is_active BOOLEAN DEFAULT 1,
-            is_admin BOOLEAN DEFAULT 0,
-            last_login TIMESTAMP,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # 用户会话表
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS user_sessions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            session_token TEXT UNIQUE NOT NULL,
-            expires_at TIMESTAMP NOT NULL,
-            ip_address TEXT,
-            user_agent TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id)
-        )
-    ''')
-    
-    # 权限表
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS permissions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            description TEXT,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-        )
-    ''')
-    
-    # 角色权限关联表
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS role_permissions (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER NOT NULL,
-            permission_name TEXT NOT NULL,
-            granted_by INTEGER,
-            granted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (user_id) REFERENCES users (id),
-            FOREIGN KEY (granted_by) REFERENCES users (id)
-        )
-    ''')
-    
-    # 插入基础权限
-    permissions = [
-        ('view_templates', '查看模板'),
-        ('manage_templates', '管理模板'),
-        ('view_projects', '查看项目'),
-        ('manage_projects', '管理项目'),
-        ('view_variables', '查看变量'),
-        ('manage_variables', '管理变量'),
-        ('view_logs', '查看日志'),
-        ('manage_users', '管理用户'),
-        ('system_admin', '系统管理员')
-    ]
-    
-    for perm_name, perm_desc in permissions:
-        cursor.execute('''
-            INSERT OR IGNORE INTO permissions (name, description)
-            VALUES (?, ?)
-        ''', (perm_name, perm_desc))
     
     # 变量数据库表
     cursor.execute('''
@@ -268,225 +206,238 @@ def init_db():
         )
     ''')
     
+    # 用户表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS users (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT UNIQUE NOT NULL,
+            password TEXT NOT NULL,
+            email TEXT UNIQUE NOT NULL,
+            role TEXT DEFAULT 'user',
+            is_active BOOLEAN DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_login TIMESTAMP,
+            activation_code TEXT,
+            activation_expire_date TEXT,
+            activation_user_info TEXT,
+            activated_at TEXT,
+            is_user_activated BOOLEAN DEFAULT 0
+        )
+    ''')
+    
+    # 用户会话表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS user_sessions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id INTEGER,
+            session_token TEXT UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            expires_at TIMESTAMP NOT NULL,
+            FOREIGN KEY (user_id) REFERENCES users (id)
+        )
+    ''')
+    
+    # 权限表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            permission_name TEXT UNIQUE NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+    ''')
+    
+    # 角色权限关联表
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS role_permissions (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            role TEXT NOT NULL,
+            permission_id INTEGER,
+            FOREIGN KEY (permission_id) REFERENCES permissions (id),
+            UNIQUE(role, permission_id)
+        )
+    ''')
+    
+    # 插入默认权限
+    default_permissions = [
+        ('view_variables', '查看变量'),
+        ('manage_variables', '管理变量'),
+        ('view_templates', '查看模板'),
+        ('manage_templates', '管理模板'),
+        ('view_projects', '查看项目'),
+        ('manage_projects', '管理项目'),
+        ('view_data', '查看数据'),
+        ('manage_data', '管理数据'),
+        ('view_logs', '查看日志'),
+        ('manage_users', '管理用户'),
+        ('system_admin', '系统管理')
+    ]
+    
+    for perm_name, perm_desc in default_permissions:
+        cursor.execute('''
+            INSERT OR IGNORE INTO permissions (permission_name, description)
+            VALUES (?, ?)
+        ''', (perm_name, perm_desc))
+    
+    # 插入默认角色权限
+    # 管理员拥有所有权限
+    cursor.execute('SELECT id FROM permissions')
+    all_permissions = cursor.fetchall()
+    
+    for perm_id in all_permissions:
+        cursor.execute('''
+            INSERT OR IGNORE INTO role_permissions (role, permission_id)
+            VALUES (?, ?)
+        ''', ('admin', perm_id[0]))
+    
+    # 普通用户权限
+    user_permissions = ['view_variables', 'view_templates', 'view_projects', 'view_data']
+    for perm_name in user_permissions:
+        cursor.execute('''
+            INSERT OR IGNORE INTO role_permissions (role, permission_id)
+            SELECT 'user', id FROM permissions WHERE permission_name = ?
+        ''', (perm_name,))
+    
+    # 创建默认管理员账户
+    import hashlib
+    admin_password = hashlib.sha256('admin123'.encode()).hexdigest()
+    cursor.execute('''
+        INSERT OR IGNORE INTO users (username, password, email, role)
+        VALUES (?, ?, ?, ?)
+    ''', ('admin', admin_password, 'admin@system.local', 'admin'))
+    
+    # 数据库升级：为现有用户表添加激活相关字段
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN activation_code TEXT")
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN activation_expire_date TEXT")
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN activation_user_info TEXT")
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN activated_at TEXT")
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    try:
+        cursor.execute("ALTER TABLE users ADD COLUMN is_user_activated BOOLEAN DEFAULT 0")
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    # 迁移现有系统激活状态到所有现有用户
+    cursor.execute('''
+        SELECT activation_code, expire_date, user_info, activated_at 
+        FROM activation_codes 
+        WHERE is_active = 1 AND expire_date > datetime('now')
+        ORDER BY activated_at DESC
+        LIMIT 1
+    ''')
+    
+    system_activation = cursor.fetchone()
+    if system_activation:
+        activation_code, expire_date, user_info, activated_at = system_activation
+        
+        # 将系统激活状态应用到所有未激活的用户
+        cursor.execute('''
+            UPDATE users 
+            SET activation_code = ?, 
+                activation_expire_date = ?, 
+                activation_user_info = ?, 
+                activated_at = ?, 
+                is_user_activated = 1
+            WHERE is_user_activated = 0 OR is_user_activated IS NULL
+        ''', (activation_code, expire_date, user_info, activated_at))
+    
     conn.commit()
     conn.close()
 
-# 激活码验证类
-class ActivationValidator:
-    def __init__(self, secret_key="djzcm_2025_secret_key_v1.0"):
-        self.secret_key = secret_key.encode('utf-8')
-        self.version = "1.0"
-    
-    def generate_machine_id(self):
-        """生成机器标识符"""
-        import platform
-        import uuid
+# 导入激活码验证模块（商业机密，不包含在开源版本中）
+try:
+    from activation_validator import ActivationValidator
+except ImportError:
+    # 如果激活码验证模块不存在，使用占位符类
+    class ActivationValidator:
+        def __init__(self, secret_key=None):
+            pass
         
-        system_info = {
-            'platform': platform.platform(),
-            'processor': platform.processor(),
-            'machine': platform.machine(),
-            'node': platform.node()
-        }
+        def generate_machine_id(self):
+            return "demo_machine_id"
         
-        info_str = json.dumps(system_info, sort_keys=True)
-        machine_hash = hashlib.sha256(info_str.encode()).hexdigest()[:16]
-        return machine_hash
-    
-    def verify_activation_code(self, activation_code, check_machine=True):
-        """验证激活码（适配优化版本）"""
-        try:
-            clean_code = activation_code.replace('-', '')
-            
-            if '.' not in clean_code:
-                return False, None, "激活码格式错误"
-            
-            data_b64, signature = clean_code.rsplit('.', 1)
-            
-            # 验证签名（适配16位签名）
-            expected_signature = hmac.new(self.secret_key, data_b64.encode('utf-8'), hashlib.sha256).hexdigest()[:16]
-            if not hmac.compare_digest(signature, expected_signature):
-                return False, None, "激活码签名验证失败"
-            
-            # 解码数据
-            try:
-                data_json = base64.b64decode(data_b64).decode('utf-8')
-                activation_data = json.loads(data_json)
-            except Exception:
-                return False, None, "激活码数据解析失败"
-            
-            # 检查版本（适配新字段名）
-            if activation_data.get('v') != self.version:
-                return False, None, "激活码版本不匹配"
-            
-            # 检查过期时间（适配时间戳格式）
-            expire_timestamp = activation_data.get('exp')
-            if not expire_timestamp:
-                return False, None, "激活码缺少过期时间"
-            
-            expire_date = datetime.fromtimestamp(expire_timestamp)
-            if datetime.now() > expire_date:
-                return False, None, f"激活码已过期（过期时间：{expire_date.strftime('%Y-%m-%d %H:%M:%S')}）"
-            
-            # 检查机器绑定（适配新字段名）
-            if check_machine and activation_data.get('m', False):
-                current_machine_id = self.generate_machine_id()[:8]  # 匹配缩短的机器ID
-                if activation_data.get('mid') != current_machine_id:
-                    return False, None, "激活码与当前机器不匹配"
-            
-            # 转换为标准格式以保持兼容性
-            standard_data = {
-                'version': activation_data.get('v'),
-                'expire_date': expire_date.isoformat(),
-                'days_valid': activation_data.get('d'),
-                'user_info': activation_data.get('u', ''),
-                'machine_binding': activation_data.get('m', False),
-                'random_salt': activation_data.get('s')
-            }
-            if activation_data.get('mid'):
-                standard_data['machine_id'] = activation_data['mid']
-            
-            return True, standard_data, "激活码验证成功"
-            
-        except Exception as e:
-            return False, None, f"验证过程中发生错误：{str(e)}"
-    
-    def get_activation_info(self, activation_code):
-        """获取激活码信息（不验证有效性）"""
-        try:
-            clean_code = activation_code.replace('-', '')
-            if '.' not in clean_code:
-                return None
-            
-            data_b64, _ = clean_code.rsplit('.', 1)
-            data_json = base64.b64decode(data_b64).decode('utf-8')
-            activation_data = json.loads(data_json)
-            
-            return activation_data
-        except Exception:
+        def verify_activation_code(self, activation_code, check_machine=True):
+            # 演示版本：总是返回失败
+            return False, None, "此功能需要完整版本"
+        
+        def get_activation_info(self, activation_code):
             return None
 
 # 全局激活验证器实例
 activation_validator = ActivationValidator()
 
-# 初始化用户认证
-auth = UserAuth(os.path.join(app_path, 'system.db'))
+# 模板上下文处理器 - 添加激活状态到所有模板
+@app.context_processor
+def inject_activation_status():
+    """向所有模板注入激活状态信息"""
+    # 只有在用户登录时才检查激活状态
+    if 'user_id' in session:
+        activation_status = check_user_activation()
+    else:
+        activation_status = {'activated': False}
+    return {'activation_status': activation_status}
 
-# 登录页面
-@app.route('/login', methods=['GET', 'POST'])
-def login():
-    if request.method == 'POST':
-        username = request.form.get('username')
-        password = request.form.get('password')
-        
-        if not username or not password:
-            return render_template('login.html', error='请输入用户名和密码')
-        
-        result = auth.authenticate_user(username, password)
-        
-        if result['success']:
-            user = result['user']
-            session['user_id'] = user['id']
-            session['username'] = user['username']
-            session['full_name'] = user['full_name']
-            session['is_admin'] = user['is_admin']
-            
-            # 创建会话记录
-            session_token = auth.create_session(
-                user['id'],
-                request.remote_addr,
-                request.headers.get('User-Agent')
-            )
-            session['session_token'] = session_token
-            
-            # 记录登录日志
-            log_operation('用户登录', f'用户 {username} 登录系统', username)
-            
-            return redirect(url_for('index'))
-        else:
-            return render_template('login.html', error=result['message'])
+# 检查用户激活状态
+def check_user_activation(user_id=None):
+    """检查用户激活状态"""
+    if user_id is None:
+        user_id = session.get('user_id')
     
-    return render_template('login.html')
-
-# 登出
-@app.route('/logout')
-def logout():
-    username = session.get('username', '未知用户')
-    session.clear()
-    log_operation('用户登出', f'用户 {username} 登出系统', username)
-    return redirect(url_for('login'))
-
-# 用户管理页面
-@app.route('/users')
-@login_required
-@permission_required('manage_users')
-def users():
-    conn = get_db_connection()
-    cursor = conn.cursor()
+    if not user_id:
+        return {'activated': False}
     
-    cursor.execute('''
-        SELECT id, username, email, full_name, is_active, is_admin, last_login, created_at
-        FROM users
-        ORDER BY created_at DESC
-    ''')
-    users = cursor.fetchall()
-    
-    conn.close()
-    return render_template('users.html', users=users)
-
-# 创建用户API
-@app.route('/api/users', methods=['POST'])
-@login_required
-@permission_required('manage_users')
-def create_user():
-    data = request.get_json()
-    
-    username = data.get('username')
-    password = data.get('password')
-    email = data.get('email')
-    full_name = data.get('full_name')
-    is_admin = data.get('is_admin', False)
-    
-    if not username or not password:
-        return jsonify({'success': False, 'message': '用户名和密码不能为空'})
-    
-    result = auth.create_user(username, password, email, full_name, is_admin)
-    
-    if result['success']:
-        log_operation('创建用户', f'创建用户: {username}', session.get('username'))
-    
-    return jsonify(result)
-
-# 检查系统激活状态
-def check_system_activation():
-    """检查系统激活状态"""
     conn = get_db_connection()
     cursor = conn.cursor()
     
     try:
-        # 查找有效的激活码
+        # 查找用户的激活信息
         cursor.execute('''
-            SELECT activation_code, expire_date, user_info 
-            FROM activation_codes 
-            WHERE is_active = 1 AND expire_date > datetime('now')
-            ORDER BY activated_at DESC
-            LIMIT 1
-        ''')
+            SELECT activation_code, activation_expire_date, activation_user_info, is_user_activated
+            FROM users 
+            WHERE id = ?
+        ''', (user_id,))
         
         result = cursor.fetchone()
         if result:
-            activation_code, expire_date, user_info = result
+            activation_code, expire_date, user_info, is_activated = result
             
-            # 验证激活码
-            is_valid, data, message = activation_validator.verify_activation_code(activation_code)
-            
-            if is_valid:
-                return {
-                    'activated': True,
-                    'expire_date': expire_date,
-                    'user_info': user_info,
-                    'days_remaining': (datetime.fromisoformat(expire_date) - datetime.now()).days
-                }
+            if is_activated and activation_code and expire_date:
+                # 检查是否过期
+                try:
+                    expire_datetime = datetime.fromisoformat(expire_date)
+                    if datetime.now() > expire_datetime:
+                        # 激活码已过期，更新用户状态
+                        cursor.execute('''
+                            UPDATE users SET is_user_activated = 0 WHERE id = ?
+                        ''', (user_id,))
+                        conn.commit()
+                        return {'activated': False, 'expired': True}
+                    
+                    days_remaining = (expire_datetime - datetime.now()).days
+                    return {
+                        'activated': True,
+                        'expire_date': expire_date,
+                        'user_info': user_info,
+                        'days_remaining': days_remaining
+                    }
+                except ValueError:
+                    # 日期格式错误
+                    return {'activated': False}
         
         return {'activated': False}
         
@@ -495,21 +446,30 @@ def check_system_activation():
     finally:
         conn.close()
 
+# 检查系统激活状态（保持兼容性，现在检查当前用户）
+def check_system_activation():
+    """检查系统激活状态（兼容性函数，实际检查当前用户激活状态）"""
+    return check_user_activation()
+
 # 激活状态检查装饰器
 def require_activation(f):
-    """装饰器：检查系统激活状态，未激活时限制功能"""
+    """装饰器：检查用户激活状态，未激活时限制功能"""
     from functools import wraps
     
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        activation_status = check_system_activation()
+        # 检查用户激活状态
+        if 'user_id' in session:
+            activation_status = check_user_activation()
+        else:
+            activation_status = {'activated': False}
         
         if not activation_status.get('activated', False):
             # 未激活时返回限制提示
             if request.is_json:
                 return jsonify({
                     'success': False, 
-                    'message': '此功能需要激活系统后才能使用。请前往"关于"页面激活系统。',
+                    'message': '此功能需要激活账号后才能使用。请前往"关于"页面激活账号。',
                     'activation_required': True
                 })
             else:
@@ -528,7 +488,11 @@ def trial_limit(max_count=None, feature_name="此功能"):
         
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            activation_status = check_system_activation()
+            # 检查用户激活状态
+            if 'user_id' in session:
+                activation_status = check_user_activation()
+            else:
+                activation_status = {'activated': False}
             
             if not activation_status.get('activated', False) and max_count is not None:
                 # 未激活时检查使用次数
@@ -550,7 +514,7 @@ def trial_limit(max_count=None, feature_name="此功能"):
                         if request.is_json or 'XMLHttpRequest' in request.headers.get('X-Requested-With', '') or request.endpoint in ['upload_template', 'add_variable', 'update_variable', 'delete_variable', 'create_project', 'update_project', 'delete_project', 'generate_file', 'import_data', 'delete_template']:
                             return jsonify({
                                 'success': False,
-                                'message': f'试用版每日只能使用{feature_name} {max_count}次，今日已用完。激活系统后可无限制使用。',
+                                'message': f'试用版每日只能使用{feature_name} {max_count}次，今日已用完。激活账号后可无限制使用。',
                                 'trial_limit_reached': True
                             })
                         else:
@@ -585,9 +549,15 @@ def trial_limit(max_count=None, feature_name="此功能"):
         return decorated_function
     return decorator
 
-# 激活系统
-def activate_system(activation_code):
-    """激活系统"""
+# 激活用户账号
+def activate_user(activation_code, user_id=None):
+    """激活用户账号"""
+    if user_id is None:
+        user_id = session.get('user_id')
+    
+    if not user_id:
+        return False, "用户未登录"
+    
     # 验证激活码
     is_valid, data, message = activation_validator.verify_activation_code(activation_code)
     
@@ -598,45 +568,64 @@ def activate_system(activation_code):
     cursor = conn.cursor()
     
     try:
-        # 检查激活码是否已存在
-        cursor.execute('SELECT id FROM activation_codes WHERE activation_code = ?', (activation_code,))
-        existing = cursor.fetchone()
+        # 检查用户是否已激活
+        cursor.execute('SELECT is_user_activated FROM users WHERE id = ?', (user_id,))
+        user_result = cursor.fetchone()
         
-        if existing:
-            return False, "此激活码已被使用"
+        if user_result and user_result[0]:
+            return False, "用户账号已激活"
+        
+        # 检查激活码是否已被其他用户使用
+        cursor.execute('SELECT id FROM users WHERE activation_code = ? AND id != ?', (activation_code, user_id))
+        existing_user = cursor.fetchone()
+        
+        if existing_user:
+            return False, "此激活码已被其他用户使用"
         
         # 获取机器ID（如果需要）
         machine_id = None
         if data.get('machine_binding', False):
             machine_id = activation_validator.generate_machine_id()
         
-        # 插入激活码记录
+        # 更新用户激活信息
         cursor.execute('''
-            INSERT INTO activation_codes 
-            (activation_code, user_info, machine_id, issue_date, expire_date, activated_at)
-            VALUES (?, ?, ?, ?, ?, datetime('now'))
+            UPDATE users 
+            SET activation_code = ?, 
+                activation_expire_date = ?, 
+                activation_user_info = ?, 
+                activated_at = datetime('now'), 
+                is_user_activated = 1
+            WHERE id = ?
         ''', (
             activation_code,
+            data['expire_date'],
             data.get('user_info', ''),
-            machine_id,
-            datetime.now().isoformat(),  # 使用当前时间作为签发日期
-            data['expire_date']
+            user_id
         ))
+        
+        # 获取用户名用于日志
+        cursor.execute('SELECT username FROM users WHERE id = ?', (user_id,))
+        username = cursor.fetchone()[0]
         
         # 记录操作日志
         cursor.execute('''
-            INSERT INTO operation_logs (operation_type, description)
-            VALUES (?, ?)
-        ''', ('系统激活', f'系统已成功激活，用户：{data.get("user_info", "未知")}，有效期至：{data["expire_date"]}'))
+            INSERT INTO operation_logs (operation_type, description, user_name)
+            VALUES (?, ?, ?)
+        ''', ('用户激活', f'用户 {username} 已成功激活，激活码用户：{data.get("user_info", "未知")}，有效期至：{data["expire_date"]}', username))
         
         conn.commit()
-        return True, "系统激活成功"
+        return True, "账号激活成功"
         
     except Exception as e:
         conn.rollback()
         return False, f"激活失败：{str(e)}"
     finally:
         conn.close()
+
+# 激活系统（兼容性函数，实际激活当前用户）
+def activate_system(activation_code):
+    """激活系统（兼容性函数，实际激活当前用户）"""
+    return activate_user(activation_code)
 
 # 提取文档中的变量
 def extract_variables_from_file(file_path, file_type):
@@ -792,8 +781,8 @@ def replace_template_variables(text, project_data):
     # 固定列名映射：模板变量名 -> 项目数据中的实际变量名
     fixed_column_mapping = {
         '项目名称': '填报项目名称',
-        '系统项目名称': '填报项目名称',
-        '系统合同编号': '合同编号'
+        '系统项目名称': '填报项目名称'
+        # 注意：合同编号相关变量不在此处映射，应直接使用用户定义的变量名
     }
     
     result_text = text
@@ -821,8 +810,8 @@ def replace_variables_in_paragraph(paragraph, project_data):
     # 固定列名映射
     fixed_column_mapping = {
         '项目名称': '填报项目名称',
-        '系统项目名称': '填报项目名称',
-        '系统合同编号': '合同编号'
+        '系统项目名称': '填报项目名称'
+        # 注意：合同编号相关变量不在此处映射，应直接使用用户定义的变量名
     }
     
     # 合并所有数据
@@ -870,13 +859,44 @@ def replace_variables_in_table_cell(cell, project_data):
         replace_variables_in_paragraph(paragraph, project_data)
 
 # 记录操作日志
-def log_operation(operation_type, description, user_name='系统用户'):
+def log_operation(operation_type, description, user_name=None):
+    from flask import session
+    
+    # 如果没有指定用户名，尝试从session获取
+    if user_name is None:
+        user_name = session.get('username', '系统用户')
+    
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    # 插入新日志
     cursor.execute('''
         INSERT INTO operation_logs (operation_type, description, user_name)
         VALUES (?, ?, ?)
     ''', (operation_type, description, user_name))
+    
+    # 检查日志数量，如果超过10000条，删除最旧的日志
+    cursor.execute('SELECT COUNT(*) FROM operation_logs')
+    log_count = cursor.fetchone()[0]
+    
+    if log_count > 10000:
+        # 删除最旧的1000条日志
+        cursor.execute('''
+            DELETE FROM operation_logs 
+            WHERE id IN (
+                SELECT id FROM operation_logs 
+                ORDER BY created_at ASC 
+                LIMIT 1000
+            )
+        ''')
+    
+    # 删除30天前的日志
+    thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+    cursor.execute('''
+        DELETE FROM operation_logs 
+        WHERE created_at < ?
+    ''', (thirty_days_ago,))
+    
     conn.commit()
     conn.close()
 
@@ -1006,6 +1026,8 @@ def upload_template():
 
 # 变量管理页面
 @app.route('/variables')
+@login_required
+@permission_required('view_variables')
 def variables():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -1374,7 +1396,11 @@ def batch_generate_files():
                                         replace_variables_in_table_cell(cell, project_data)
                             
                             # 保存文档
-                            output_filename = f"{template_name}.docx"
+                            # 避免重复后缀
+                            if template_name.lower().endswith('.docx'):
+                                output_filename = template_name
+                            else:
+                                output_filename = f"{template_name}.docx"
                             output_path = os.path.normpath(os.path.join(template_output_dir, output_filename))
                             doc.save(output_path)
                             generated_files.append(output_path)
@@ -1390,7 +1416,11 @@ def batch_generate_files():
                                             cell.value = replace_template_variables(cell.value, project_data)
                             
                             # 保存文档
-                            output_filename = f"{template_name}.xlsx"
+                            # 避免重复后缀
+                            if template_name.lower().endswith('.xlsx'):
+                                output_filename = template_name
+                            else:
+                                output_filename = f"{template_name}.xlsx"
                             output_path = os.path.normpath(os.path.join(template_output_dir, output_filename))
                             wb.save(output_path)
                             generated_files.append(output_path)
@@ -1968,9 +1998,9 @@ def get_templates_for_project(project_id):
         # 固定列名映射：模板变量名 -> 项目数据中的实际变量名
         fixed_column_mapping = {
             '项目名称': '填报项目名称',
-            '系统项目名称': '填报项目名称',
-            '合同编号': '备注说明',
-            '系统合同编号': '备注说明'
+            '系统项目名称': '填报项目名称'
+            # 注意：合同编号相关变量不在此处映射，应直接使用用户定义的变量名
+            # 备注说明来自项目基本信息，不是变量数据
         }
         
         # 首先检查固定列名映射
@@ -2113,15 +2143,10 @@ def generate_file():
     
     # 添加项目基本信息到数据字典中
     project_data['填报项目名称'] = project[0]
+    project_data['备注说明'] = project[1] or ''  # 添加备注说明到变量数据中，用于模板替换
     
     # 合并额外数据
     project_data.update(additional_data)
-    
-    # 备注说明不参与变量替换，直接保存到数据库
-    cursor.execute('''
-        INSERT OR REPLACE INTO project_data (project_id, variable_name, variable_value)
-        VALUES (?, '备注说明', ?)
-    ''', (project_id, project[1] or ''))
     
     # 创建输出目录
     output_base_dir = app.config['OUTPUT_FOLDER']
@@ -2134,7 +2159,11 @@ def generate_file():
     file_type = template[2]
     # 移除项目名称中的扩展名，避免重复
     project_name = project[0].replace(file_type, '')
-    output_filename = f"{project_name}_{template[0]}{file_type}"
+    template_name = template[0]
+    # 避免模板名称中的重复后缀
+    if template_name.lower().endswith(file_type.lower()):
+        template_name = template_name[:-len(file_type)]
+    output_filename = f"{project_name}_{template_name}{file_type}"
     output_path = os.path.normpath(os.path.join(output_dir, output_filename))
     
     try:
@@ -2207,6 +2236,8 @@ def download_file(project_id, template_id, filename):
 
 # 操作日志
 @app.route('/logs')
+@login_required
+@permission_required('view_logs')
 def logs():
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -2223,32 +2254,104 @@ def logs():
     return render_template('logs.html', logs=logs)
 
 @app.route('/clear_logs', methods=['POST'])
+@admin_required
 def clear_logs():
     try:
+        data = request.get_json() or {}
+        clear_type = data.get('type', 'old')  # 'old' 或 'all'
+        
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 清空操作日志表
-        cursor.execute('DELETE FROM operation_logs')
+        if clear_type == 'all':
+            # 清空所有操作日志
+            cursor.execute('SELECT COUNT(*) FROM operation_logs')
+            total_count = cursor.fetchone()[0]
+            cursor.execute('DELETE FROM operation_logs')
+            message = f'已清空所有操作日志，共删除 {total_count} 条记录'
+        else:
+            # 只清空30天前的日志
+            thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+            cursor.execute('SELECT COUNT(*) FROM operation_logs WHERE created_at < ?', (thirty_days_ago,))
+            old_count = cursor.fetchone()[0]
+            cursor.execute('DELETE FROM operation_logs WHERE created_at < ?', (thirty_days_ago,))
+            message = f'已清空30天前的操作日志，共删除 {old_count} 条记录'
+        
         conn.commit()
         
         # 记录清空操作
         cursor.execute('''
             INSERT INTO operation_logs (operation_type, description, user_name)
             VALUES (?, ?, ?)
-        ''', ('系统操作', '清空操作日志', '系统用户'))
+        ''', ('系统操作', message, session.get('username', '系统用户')))
         conn.commit()
         conn.close()
         
         return jsonify({
             'success': True,
-            'message': '操作日志已成功清空'
+            'message': message
         })
         
     except Exception as e:
         return jsonify({
             'success': False,
             'message': f'清空失败: {str(e)}'
+        })
+
+# 获取日志统计信息API
+@app.route('/api/logs/stats', methods=['GET'])
+@admin_required
+def get_log_stats():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        # 总日志数量
+        cursor.execute('SELECT COUNT(*) FROM operation_logs')
+        total_logs = cursor.fetchone()[0]
+        
+        # 今日日志数量
+        today = datetime.now().strftime('%Y-%m-%d')
+        cursor.execute('SELECT COUNT(*) FROM operation_logs WHERE DATE(created_at) = ?', (today,))
+        today_logs = cursor.fetchone()[0]
+        
+        # 30天前的日志数量
+        thirty_days_ago = (datetime.now() - timedelta(days=30)).strftime('%Y-%m-%d %H:%M:%S')
+        cursor.execute('SELECT COUNT(*) FROM operation_logs WHERE created_at < ?', (thirty_days_ago,))
+        old_logs = cursor.fetchone()[0]
+        
+        # 最早和最新的日志时间
+        cursor.execute('SELECT MIN(created_at), MAX(created_at) FROM operation_logs')
+        time_range = cursor.fetchone()
+        
+        # 按操作类型统计
+        cursor.execute('''
+            SELECT operation_type, COUNT(*) 
+            FROM operation_logs 
+            GROUP BY operation_type 
+            ORDER BY COUNT(*) DESC 
+            LIMIT 10
+        ''')
+        operation_stats = cursor.fetchall()
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'stats': {
+                'total_logs': total_logs,
+                'today_logs': today_logs,
+                'old_logs': old_logs,
+                'earliest_log': time_range[0],
+                'latest_log': time_range[1],
+                'operation_stats': operation_stats
+            }
+        })
+        
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'message': f'获取统计信息失败: {str(e)}'
         })
 
 @app.route('/export_logs')
@@ -2404,17 +2507,21 @@ def import_data():
 
 # 数据管理页面
 @app.route('/data_management')
+@login_required
+@permission_required('view_data')
 def data_management():
     return render_template('data_management.html')
 
 @app.route('/about')
+@login_required
 def about():
-    # 检查系统激活状态
-    activation_status = check_system_activation()
+    # 检查当前用户激活状态
+    activation_status = check_user_activation()
     return render_template('about.html', activation_status=activation_status)
 
 # 激活码验证API
 @app.route('/api/activation/verify', methods=['POST'])
+@login_required
 def verify_activation():
     try:
         data = request.get_json()
@@ -2423,14 +2530,14 @@ def verify_activation():
         if not activation_code:
             return jsonify({'success': False, 'message': '请输入激活码'})
         
-        # 激活系统
-        success, message = activate_system(activation_code)
+        # 激活当前用户
+        success, message = activate_user(activation_code)
         
         if success:
             return jsonify({
                 'success': True,
                 'message': message,
-                'activation_status': check_system_activation()
+                'activation_status': check_user_activation()
             })
         else:
             return jsonify({'success': False, 'message': message})
@@ -2440,9 +2547,10 @@ def verify_activation():
 
 # 获取激活状态API
 @app.route('/api/activation/status')
+@login_required
 def get_activation_status():
     try:
-        activation_status = check_system_activation()
+        activation_status = check_user_activation()
         return jsonify({
             'success': True,
             'activation_status': activation_status
@@ -2450,7 +2558,62 @@ def get_activation_status():
     except Exception as e:
         return jsonify({'success': False, 'message': f'获取状态失败：{str(e)}'})
 
-# 获取试用状态API
+# 管理员查看所有用户激活状态API
+@app.route('/api/admin/users/activation')
+@login_required
+@admin_required
+def get_all_users_activation():
+    try:
+        conn = get_db_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute('''
+            SELECT id, username, email, is_user_activated, activation_expire_date, activation_user_info, activated_at
+            FROM users
+            ORDER BY created_at DESC
+        ''')
+        
+        users = []
+        for row in cursor.fetchall():
+            user_id, username, email, is_activated, expire_date, user_info, activated_at = row
+            
+            user_data = {
+                'id': user_id,
+                'username': username,
+                'email': email,
+                'is_activated': bool(is_activated),
+                'expire_date': expire_date,
+                'user_info': user_info,
+                'activated_at': activated_at
+            }
+            
+            # 计算剩余天数
+            if is_activated and expire_date:
+                try:
+                    expire_datetime = datetime.fromisoformat(expire_date)
+                    days_remaining = (expire_datetime - datetime.now()).days
+                    user_data['days_remaining'] = days_remaining
+                    user_data['expired'] = days_remaining < 0
+                except ValueError:
+                    user_data['days_remaining'] = None
+                    user_data['expired'] = True
+            else:
+                user_data['days_remaining'] = None
+                user_data['expired'] = False
+            
+            users.append(user_data)
+        
+        conn.close()
+        
+        return jsonify({
+            'success': True,
+            'users': users
+        })
+        
+    except Exception as e:
+        return jsonify({'success': False, 'message': f'获取用户激活状态失败：{str(e)}'})
+
+# 试用版状态API
 @app.route('/api/trial/status')
 def get_trial_status():
     try:
@@ -2661,7 +2824,7 @@ def favicon():
 def open_browser():
     """延迟打开浏览器"""
     time.sleep(1.5)  # 等待服务器启动
-    webbrowser.open('http://localhost:5000')  # 改为5000端口
+    webbrowser.open('http://localhost:5000')
 
 def shutdown_server():
     """优雅关闭服务器"""
@@ -2685,6 +2848,241 @@ def shutdown_server():
         import os
         os._exit(0)
 
+# ==================== 用户认证路由 ====================
+
+# 登录页面
+@app.route('/login')
+def login():
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+    return render_template('login.html')
+
+# 注册页面
+@app.route('/register')
+def register():
+    if 'user_id' in session:
+        return redirect(url_for('index'))
+    return render_template('register.html')
+
+# 用户管理页面
+@app.route('/users')
+@admin_required
+def users():
+    return render_template('users.html')
+
+# 登出
+@app.route('/logout')
+def logout():
+    session.clear()
+    return redirect(url_for('login'))
+
+# ==================== 认证API路由 ====================
+
+# 登录API
+@app.route('/api/login', methods=['POST'])
+def api_login():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        
+        if not username or not password:
+            return jsonify({'error': '用户名和密码不能为空'}), 400
+        
+        user_manager = UserManager()
+        result = user_manager.authenticate_user(username, password)
+        
+        # 处理新的返回格式
+        if isinstance(result, tuple):
+            user, error_message = result
+            if user:
+                session['user_id'] = user['id']
+                session['username'] = user['username']
+                session['role'] = user['role']
+                session['role_name'] = '管理员' if user['role'] == 'admin' else '普通用户'
+                session['email'] = user['email']
+                
+                # 更新最后登录时间
+                user_manager.update_last_login(user['id'])
+                
+                return jsonify({
+                    'success': True,
+                    'message': '登录成功',
+                    'redirect': url_for('index'),
+                    'user': {
+                        'username': user['username'],
+                        'role': user['role'],
+                        'email': user['email']
+                    }
+                })
+            else:
+                return jsonify({'error': error_message}), 401
+        else:
+            # 兼容旧格式（如果没有错误消息）
+            if result:
+                session['user_id'] = result['id']
+                session['username'] = result['username']
+                session['role'] = result['role']
+                session['role_name'] = '管理员' if result['role'] == 'admin' else '普通用户'
+                session['email'] = result['email']
+                
+                user_manager.update_last_login(result['id'])
+                
+                return jsonify({
+                    'success': True,
+                    'message': '登录成功',
+                    'redirect': url_for('index'),
+                    'user': {
+                        'username': result['username'],
+                        'role': result['role'],
+                        'email': result['email']
+                    }
+                })
+            else:
+                return jsonify({'error': '用户名或密码错误'}), 401
+            
+    except Exception as e:
+        return jsonify({'error': f'登录失败: {str(e)}'}), 500
+
+# 注册API
+@app.route('/api/register', methods=['POST'])
+def api_register():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
+        
+        if not username or not password or not email:
+            return jsonify({'error': '所有字段都是必填的'}), 400
+        
+        # 基本验证
+        if len(username) < 3 or len(username) > 20:
+            return jsonify({'error': '用户名长度必须在3-20个字符之间'}), 400
+        
+        # 密码复杂度验证将在UserManager中进行
+        
+        import re
+        if not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', email):
+            return jsonify({'error': '邮箱格式不正确'}), 400
+        
+        user_manager = UserManager()
+        success, message = user_manager.create_user(username, password, email)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            return jsonify({'error': message}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'注册失败: {str(e)}'}), 500
+
+# 获取用户列表API
+@app.route('/api/users', methods=['GET'])
+@admin_required
+def api_get_users():
+    try:
+        user_manager = UserManager()
+        users = user_manager.get_all_users()
+        
+        return jsonify({
+            'success': True,
+            'users': users
+        })
+        
+    except Exception as e:
+        return jsonify({'error': f'获取用户列表失败: {str(e)}'}), 500
+
+# 创建用户API
+@app.route('/api/users', methods=['POST'])
+@admin_required
+def api_create_user():
+    try:
+        data = request.get_json()
+        username = data.get('username')
+        password = data.get('password')
+        email = data.get('email')
+        role = data.get('role', 'user')
+        
+        if not username or not password or not email:
+            return jsonify({'error': '所有字段都是必填的'}), 400
+        
+        if role not in ['user', 'admin']:
+            return jsonify({'error': '无效的角色'}), 400
+        
+        user_manager = UserManager()
+        success, message = user_manager.create_user(username, password, email, role)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            return jsonify({'error': message}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'创建用户失败: {str(e)}'}), 500
+
+# 切换用户状态API
+@app.route('/api/users/<int:user_id>/toggle', methods=['POST'])
+@admin_required
+def api_toggle_user_status(user_id):
+    try:
+        # 防止管理员禁用自己
+        if user_id == session.get('user_id'):
+            return jsonify({'error': '不能禁用自己的账户'}), 400
+        
+        user_manager = UserManager()
+        success = user_manager.toggle_user_status(user_id)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': '用户状态已更新'
+            })
+        else:
+            return jsonify({'error': '更新用户状态失败'}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'更新用户状态失败: {str(e)}'}), 500
+
+# 修改密码API
+@app.route('/api/change_password', methods=['POST'])
+@login_required
+def api_change_password():
+    try:
+        data = request.get_json()
+        old_password = data.get('old_password')
+        new_password = data.get('new_password')
+        confirm_password = data.get('confirm_password')
+        
+        if not old_password or not new_password or not confirm_password:
+            return jsonify({'error': '所有字段都是必填的'}), 400
+        
+        if new_password != confirm_password:
+            return jsonify({'error': '新密码和确认密码不匹配'}), 400
+        
+        user_manager = UserManager()
+        success, message = user_manager.change_password(session['user_id'], old_password, new_password)
+        
+        if success:
+            # 记录操作日志
+            log_operation('密码修改', '用户修改密码')
+            
+            return jsonify({
+                'success': True,
+                'message': message
+            })
+        else:
+            return jsonify({'error': message}), 400
+            
+    except Exception as e:
+        return jsonify({'error': f'修改密码失败: {str(e)}'}), 500
+
 @app.route('/shutdown', methods=['POST'])
 def shutdown():
     """关闭服务器的API端点"""
@@ -2697,13 +3095,32 @@ def signal_handler(signum, frame):
     os._exit(0)
 
 def setup_console_handler():
-    """设置控制台关闭处理器（已移除Windows特定代码）"""
-    pass
+    """设置控制台关闭处理器（仅Windows）"""
+    try:
+        import platform
+        if platform.system() == 'Windows':
+            import ctypes
+            from ctypes import wintypes
+            
+            # 定义控制台事件处理函数
+            def console_handler(event_type):
+                if event_type in (0, 2):  # CTRL_C_EVENT 或 CTRL_CLOSE_EVENT
+                    print("\n检测到控制台关闭，正在退出系统...")
+                    os._exit(0)
+                return True
+            
+            # 设置控制台处理器
+            HANDLER_ROUTINE = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
+            handler = HANDLER_ROUTINE(console_handler)
+            ctypes.windll.kernel32.SetConsoleCtrlHandler(handler, True)
+    except Exception:
+        pass  # 忽略设置错误
 
 if __name__ == '__main__':
     init_db()
     
-    # 检查是否为Docker环境
+    # 检查是否为打包环境或Docker环境
+    is_packaged = getattr(sys, 'frozen', False)
     is_docker = os.environ.get('FLASK_ENV') == 'production'
     
     # 注册信号处理器
@@ -2711,10 +3128,12 @@ if __name__ == '__main__':
     try:
         signal.signal(signal.SIGINT, signal_handler)
         signal.signal(signal.SIGTERM, signal_handler)
+        if is_packaged:
+            setup_console_handler()  # 在打包环境下设置控制台处理器
     except Exception:
         pass  # 忽略信号注册错误
     
-    if not is_docker:
+    if not is_packaged and not is_docker:
         # 开发环境下显示启动信息
         print("========================================")
         print("    智汇填报系统")
@@ -2727,18 +3146,35 @@ if __name__ == '__main__':
         
         # 在新线程中打开浏览器（仅在非Docker环境）
         threading.Thread(target=open_browser, daemon=True).start()
+    elif is_packaged:
+        # 打包环境下显示启动信息并自动打开浏览器
+        print("========================================")
+        print("    智汇填报系统")
+        print("========================================")
+        print("系统正在启动，请稍候...")
+        print("系统启动后将自动打开浏览器")
+        print("如果浏览器未自动打开，请手动访问: http://localhost:5000")
+        print("关闭此窗口将退出系统")
+        print("========================================")
+        
+        # 在新线程中打开浏览器
+        threading.Thread(target=open_browser, daemon=True).start()
     
     # 启动Flask应用
     import logging
+    if is_packaged:
+        # 打包环境下减少日志输出但保持基本信息
+        logging.getLogger('werkzeug').setLevel(logging.WARNING)
     
-    # 从环境变量获取端口和调试模式设置
-    port = int(os.environ.get('PORT', 5000))
-    debug = os.environ.get('FLASK_ENV') != 'production'
+    # 根据环境设置调试模式
+    debug_mode = not is_packaged and not is_docker
     
     try:
-        app.run(host='0.0.0.0', port=port, debug=debug)
+        app.run(debug=debug_mode, host='0.0.0.0', port=5000, threaded=True)
     except KeyboardInterrupt:
         print("\n系统已退出")
     except Exception as e:
         print(f"系统启动失败: {e}")
+        if is_packaged:
+            input("按回车键退出...")
         sys.exit(1)

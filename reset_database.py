@@ -92,6 +92,42 @@ def reset_database(db_path):
         cursor.execute('DELETE FROM sqlite_sequence')
         print("✅ 已重置自增ID")
         
+        # 重新创建默认管理员账户
+        import hashlib
+        admin_password = hashlib.sha256('admin123'.encode()).hexdigest()
+        cursor.execute('''
+            INSERT INTO users (username, password, email, role, is_active, created_at)
+            VALUES (?, ?, ?, ?, ?, ?)
+        ''', ('admin', admin_password, 'admin@system.local', 'admin', True, datetime.now()))
+        print("✅ 已重新创建默认管理员账户")
+        
+        # 重新插入基础权限
+        basic_permissions = [
+            'user_management',
+            'template_management', 
+            'project_management',
+            'variable_management',
+            'log_management',
+            'system_management'
+        ]
+        
+        for perm_name in basic_permissions:
+            cursor.execute('''
+                INSERT INTO permissions (permission_name, description)
+                VALUES (?, ?)
+            ''', (perm_name, f'{perm_name} permission'))
+        
+        # 为管理员角色分配所有权限
+        cursor.execute('SELECT id FROM permissions')
+        permission_ids = cursor.fetchall()
+        for perm_id in permission_ids:
+            cursor.execute('''
+                INSERT INTO role_permissions (role, permission_id)
+                VALUES (?, ?)
+            ''', ('admin', perm_id[0]))
+        
+        print(f"✅ 已插入 {len(basic_permissions)} 个基础权限并分配给管理员")
+        
         # 保留基础变量数据（可选）
         # 如果需要保留一些基础变量，可以在这里重新插入
         basic_variables = [
@@ -171,6 +207,8 @@ def main():
         print("  ✅ 清理了所有用户数据")
         print("  ✅ 清理了所有操作日志")
         print("  ✅ 清理了上传和输出目录")
+        print("  ✅ 重新创建了默认管理员账户 (admin/admin123)")
+        print("  ✅ 重新配置了基础权限系统")
         print("  ✅ 保留了基础变量配置")
         
         if backup_path:
