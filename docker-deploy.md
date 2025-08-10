@@ -9,7 +9,20 @@
 
 ## 🚀 快速部署
 
-### 方法一：使用 Docker Compose（推荐）
+### 方法一：使用预构建镜像（推荐）
+
+```bash
+# 1. 下载 docker-compose.yml 文件
+wget https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/docker-compose.yml
+
+# 2. 启动服务
+docker-compose up -d
+
+# 3. 查看服务状态
+docker-compose ps
+```
+
+### 方法二：完整项目部署
 
 ```bash
 # 1. 克隆项目
@@ -23,20 +36,23 @@ docker-compose up -d
 docker-compose ps
 ```
 
-### 方法二：使用 Docker 命令
+### 方法三：手动 Docker 命令
 
 ```bash
-# 1. 构建镜像
-docker build -t zdtb-system .
+# 1. 拉取最新镜像
+docker pull wsndy666/zdtb-system:latest
 
-# 2. 运行容器
+# 2. 创建数据目录
+mkdir -p ./data
+
+# 3. 运行容器
 docker run -d \
   --name zdtb-system \
   -p 5000:5000 \
   -v $(pwd)/data:/app/data \
   -v $(pwd)/system.db:/app/system.db \
   --restart unless-stopped \
-  zdtb-system
+  wsndy666/zdtb-system:latest
 ```
 
 ## 🔧 服务管理
@@ -95,7 +111,9 @@ docker rm zdtb-system
 
 - **访问地址**：http://localhost:5000
 - **默认管理员账号**：admin
-- **默认管理员密码**：123456
+- **默认管理员密码**：admin123
+
+⚠️ **安全提醒**：首次登录后请立即修改默认密码！
 
 ## 🔒 数据持久化
 
@@ -144,7 +162,20 @@ docker inspect zdtb-system | grep -A 10 Health
 
 ## 🔄 更新部署
 
-### 更新应用代码
+### 方法一：更新预构建镜像（推荐）
+
+```bash
+# 1. 停止当前服务
+docker-compose down
+
+# 2. 拉取最新镜像
+docker-compose pull
+
+# 3. 启动服务
+docker-compose up -d
+```
+
+### 方法二：更新应用代码
 
 ```bash
 # 1. 拉取最新代码
@@ -152,6 +183,26 @@ git pull origin main
 
 # 2. 重新构建并启动
 docker-compose up -d --build
+```
+
+### 方法三：手动更新镜像
+
+```bash
+# 1. 停止容器
+docker stop zdtb-system
+docker rm zdtb-system
+
+# 2. 拉取最新镜像
+docker pull wsndy666/zdtb-system:latest
+
+# 3. 重新运行容器
+docker run -d \
+  --name zdtb-system \
+  -p 5000:5000 \
+  -v $(pwd)/data:/app/data \
+  -v $(pwd)/system.db:/app/system.db \
+  --restart unless-stopped \
+  wsndy666/zdtb-system:latest
 ```
 
 ### 备份数据
