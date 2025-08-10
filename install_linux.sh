@@ -138,20 +138,44 @@ setup_directory() {
     log_success "应用目录创建完成"
 }
 
-# 复制项目文件
+# 下载项目文件
 copy_project_files() {
-    log_info "复制项目文件..."
+    log_info "下载项目文件..."
     
-    # 获取脚本所在目录
-    SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
+    # 从GitHub下载项目文件
+    cd "$APP_DIR"
     
-    # 复制所有必要文件到应用目录
-    cp -r "$SCRIPT_DIR"/* "$APP_DIR/"
+    # 下载主要项目文件
+    wget -O app.py https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/app.py
+    wget -O auth.py https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/auth.py
+    wget -O requirements.txt https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/requirements.txt
+    wget -O reset_database.py https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/reset_database.py
     
-    # 删除不需要的文件
-    rm -f "$APP_DIR/install_linux.sh"
+    # 创建static目录并下载静态文件
+    mkdir -p static/css static/js
+    wget -O static/css/animate.min.css https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/css/animate.min.css
+    wget -O static/css/bootstrap-icons.css https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/css/bootstrap-icons.css
+    wget -O static/css/bootstrap.min.css https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/css/bootstrap.min.css
+    wget -O static/js/bootstrap.bundle.min.js https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/js/bootstrap.bundle.min.js
+    wget -O static/js/jquery.min.js https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/js/jquery.min.js
+    wget -O static/lx.jpg https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/static/lx.jpg
     
-    log_success "项目文件复制完成"
+    # 创建templates目录并下载模板文件
+    mkdir -p templates
+    wget -O templates/about.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/about.html
+    wget -O templates/base.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/base.html
+    wget -O templates/data_management.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/data_management.html
+    wget -O templates/help.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/help.html
+    wget -O templates/index.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/index.html
+    wget -O templates/login.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/login.html
+    wget -O templates/logs.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/logs.html
+    wget -O templates/projects.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/projects.html
+    wget -O templates/register.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/register.html
+    wget -O templates/templates.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/templates.html
+    wget -O templates/users.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/users.html
+    wget -O templates/variables.html https://raw.githubusercontent.com/wsndy666/zdtb-centos/main/templates/variables.html
+    
+    log_success "项目文件下载完成"
 }
 
 # 创建Python虚拟环境
