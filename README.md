@@ -1,6 +1,6 @@
-# 智汇填报系统 v1.3.0
+# 智汇填报系统 v2.0.0
 
-一个基于Flask的自动化文档填报系统，支持Word和Excel模板的变量替换和批量文件生成。集成了完整的用户认证系统和权限管理功能。
+一个基于Flask的自动化文档填报系统，支持Word和Excel模板的变量替换和批量文件生成。集成了完整的用户认证系统和权限管理功能，支持Linux系统一键部署。
 
 ## 功能特性
 
@@ -83,6 +83,45 @@
 - `permissions`：权限定义表
 - `role_permissions`：角色权限关联表
 
+## 快速部署
+
+### Linux系统一键安装 🚀
+
+支持 Ubuntu/Debian 和 CentOS/RHEL 系统的一键安装部署：
+
+```bash
+# 克隆项目
+git clone https://github.com/wsndy666/zdtb-centos.git
+cd zdtb-centos
+
+# 给脚本执行权限
+chmod +x install_linux.sh
+
+# 运行一键安装
+./install_linux.sh
+```
+
+**安装脚本功能：**
+- ✅ 自动检测操作系统类型
+- ✅ 安装Python3和系统依赖
+- ✅ 创建虚拟环境和安装依赖包
+- ✅ 配置systemd系统服务
+- ✅ 自动配置防火墙规则
+- ✅ 老版本检测和卸载提示
+- ✅ 一键启动和状态监控
+
+**安装完成后：**
+- 访问地址：`http://服务器IP:5000`
+- 服务管理：`sudo systemctl start/stop/restart zdtb-system`
+- 查看日志：`sudo journalctl -u zdtb-system -f`
+
+### Windows系统部署
+
+1. 安装Python 3.8+
+2. 克隆或下载项目代码
+3. 安装依赖：`pip install -r requirements.txt`
+4. 运行系统：`python app.py`
+
 ## 使用说明
 
 ### 首次使用
@@ -92,7 +131,7 @@
 
 ### 默认管理员账户
 - 用户名：admin
-- 密码：Admin123!
+- 密码：admin123
 - 邮箱：admin@example.com
 
 ### 注意事项
@@ -126,6 +165,28 @@
 - 文档处理使用python-docx和openpyxl库
 
 ## 版本更新记录
+
+### v2.0.0 (2025-01-XX)
+
+**重大更新：Linux部署支持**
+- ✅ 新增Linux系统一键安装部署脚本
+- ✅ 支持Ubuntu/Debian和CentOS/RHEL系统
+- ✅ 自动配置systemd系统服务
+- ✅ 智能老版本检测和卸载提示
+- ✅ 自动防火墙配置和端口开放
+- ✅ 完善的错误处理和日志输出
+- ✅ 商业机密保护版本发布
+
+**安全增强：**
+- 激活码系统模块化隔离
+- 敏感配置和算法分离
+- 完善的.gitignore配置
+- 数据库安全初始化
+
+**Bug修复：**
+- 修复用户添加400错误问题
+- 优化前端错误处理逻辑
+- 改善用户体验和错误提示
 
 ### v1.3.0 (2025-08-10)
 
@@ -201,8 +262,56 @@
 - 管理员权限：用户管理、系统配置
 - 普通用户权限：基础功能使用
 
+## 系统要求
+
+### Linux系统
+- **支持系统**：Ubuntu 18.04+, Debian 10+, CentOS 7+, RHEL 7+, Rocky Linux 8+
+- **Python版本**：Python 3.6+
+- **内存要求**：最低512MB，推荐1GB+
+- **磁盘空间**：最低1GB可用空间
+- **网络要求**：需要互联网连接（仅安装时）
+
+### Windows系统
+- **支持系统**：Windows 7+, Windows Server 2012+
+- **Python版本**：Python 3.8+
+- **内存要求**：最低1GB，推荐2GB+
+
+## 服务管理
+
+### Linux系统服务命令
+```bash
+# 查看服务状态
+sudo systemctl status zdtb-system
+
+# 启动服务
+sudo systemctl start zdtb-system
+
+# 停止服务
+sudo systemctl stop zdtb-system
+
+# 重启服务
+sudo systemctl restart zdtb-system
+
+# 开机自启
+sudo systemctl enable zdtb-system
+
+# 查看实时日志
+sudo journalctl -u zdtb-system -f
+```
+
+### 卸载系统
+如需完全卸载系统，请执行：
+```bash
+sudo systemctl stop zdtb-system
+sudo systemctl disable zdtb-system
+sudo rm -f /etc/systemd/system/zdtb-system.service
+sudo systemctl daemon-reload
+sudo rm -rf /opt/zdtb-system
+```
+
 ## 版本信息
 
-- 当前版本：1.3.0
-- 更新日期：2025-08-10
+- 当前版本：2.0.0
+- 更新日期：2025-01-XX
 - 开发者：AI Assistant
+- 仓库地址：https://github.com/wsndy666/zdtb-centos.git

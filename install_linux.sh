@@ -46,6 +46,61 @@ detect_os() {
     log_info "检测到操作系统: $OS $VER"
 }
 
+# 检查老版本安装
+check_old_version() {
+    APP_DIR="/opt/zdtb-system"
+    SERVICE_NAME="zdtb-system"
+    
+    log_info "检查是否存在老版本安装..."
+    
+    # 检查服务是否存在
+    if systemctl list-unit-files | grep -q "$SERVICE_NAME.service"; then
+        log_warning "检测到已安装的智汇填报系统服务"
+        
+        # 检查服务状态
+        if systemctl is-active --quiet $SERVICE_NAME; then
+            log_warning "服务正在运行中"
+        fi
+        
+        echo
+        log_error "发现老版本安装，为确保系统稳定性，请先卸载老版本！"
+        echo
+        echo "🔧 卸载步骤："
+        echo "   1. 停止服务: sudo systemctl stop $SERVICE_NAME"
+        echo "   2. 禁用服务: sudo systemctl disable $SERVICE_NAME"
+        echo "   3. 删除服务文件: sudo rm -f /etc/systemd/system/$SERVICE_NAME.service"
+        echo "   4. 重新加载systemd: sudo systemctl daemon-reload"
+        echo "   5. 删除应用目录: sudo rm -rf $APP_DIR"
+        echo "   6. 清理防火墙规则（可选）:"
+        echo "      • Ubuntu/Debian: sudo ufw delete allow 5000/tcp"
+        echo "      • CentOS/RHEL: sudo firewall-cmd --permanent --remove-port=5000/tcp && sudo firewall-cmd --reload"
+        echo
+        echo "💡 快速卸载命令："
+        echo "sudo systemctl stop $SERVICE_NAME && sudo systemctl disable $SERVICE_NAME && sudo rm -f /etc/systemd/system/$SERVICE_NAME.service && sudo systemctl daemon-reload && sudo rm -rf $APP_DIR"
+        echo
+        log_error "请执行上述卸载步骤后重新运行安装脚本"
+        exit 1
+    fi
+    
+    # 检查应用目录是否存在
+    if [ -d "$APP_DIR" ]; then
+        log_warning "检测到应用目录 $APP_DIR 已存在"
+        echo
+        read -p "是否删除现有目录并继续安装？(y/N): " -n 1 -r
+        echo
+        if [[ $REPLY =~ ^[Yy]$ ]]; then
+            log_info "删除现有应用目录..."
+            sudo rm -rf $APP_DIR
+            log_success "现有目录已删除"
+        else
+            log_error "安装已取消"
+            exit 1
+        fi
+    fi
+    
+    log_success "老版本检查完成，可以继续安装"
+}
+
 # 安装系统依赖
 install_dependencies() {
     log_info "正在安装系统依赖..."
@@ -237,6 +292,7 @@ main() {
     fi
     
     detect_os
+    check_old_version
     install_dependencies
     setup_directory
     copy_project_files
