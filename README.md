@@ -109,11 +109,22 @@ docker-compose ps
 - ✅ 内置健康检查和自动重启
 - ✅ 便于扩展和集群部署
 
+**快速使用Docker Hub镜像：**
+```bash
+# 直接使用已发布的镜像
+docker run -d --name zdtb-system -p 5000:5000 wsndy666/zdtb-system:latest
+
+# 或使用docker-compose（推荐）
+docker-compose up -d
+```
+
 **部署完成后：**
 - 访问地址：`http://localhost:5000`
 - 服务管理：`docker-compose start/stop/restart`
 - 查看日志：`docker-compose logs -f`
+- Docker Hub：[wsndy666/zdtb-system](https://hub.docker.com/r/wsndy666/zdtb-system)
 - 详细说明：参见 [Docker部署指南](docker-deploy.md)
+- 发布配置：参见 [Docker Hub配置指南](docker-hub-setup.md)
 
 ### Linux系统一键安装 🚀
 

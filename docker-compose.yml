@@ -2,7 +2,11 @@ version: '3.8'
 
 services:
   zdtb-system:
-    build: .
+    # 选择以下两种方式之一：
+    # 方式1：使用Docker Hub镜像（推荐）
+    image: wsndy666/zdtb-system:latest
+    # 方式2：本地构建（开发环境）
+    # build: .
     container_name: zdtb-system
     ports:
       - "5000:5000"
