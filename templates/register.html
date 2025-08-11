@@ -38,7 +38,15 @@
                                     <i class="bi bi-eye"></i>
                                 </button>
                             </div>
-                            <div class="form-text">至少8个字符，必须包含大小写字母、数字和特殊字符</div>
+                            <div class="form-text">
+                                <strong>密码要求：</strong><br>
+                                • 至少8个字符<br>
+                                • 包含大写字母 (A-Z)<br>
+                                • 包含小写字母 (a-z)<br>
+                                • 包含数字 (0-9)<br>
+                                • 包含特殊字符 (!@#$%^&*(),.?":{}|<>)
+                            </div>
+                            <div id="passwordStrength" class="mt-2" style="display: none;"></div>
                         </div>
                         <div class="mb-3">
                             <label for="confirmPassword" class="form-label">确认密码</label>
@@ -129,6 +137,37 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
     
+    // 密码强度验证
+    document.getElementById('password').addEventListener('input', function() {
+        const password = this.value;
+        const strengthDiv = document.getElementById('passwordStrength');
+        
+        if (password.length === 0) {
+            strengthDiv.style.display = 'none';
+            return;
+        }
+        
+        strengthDiv.style.display = 'block';
+        
+        const requirements = [
+            { test: password.length >= 8, text: '至少8个字符' },
+            { test: /[A-Z]/.test(password), text: '包含大写字母' },
+            { test: /[a-z]/.test(password), text: '包含小写字母' },
+            { test: /\d/.test(password), text: '包含数字' },
+            { test: /[!@#$%^&*(),.?":{}|<>]/.test(password), text: '包含特殊字符' }
+        ];
+        
+        let html = '<small>';
+        requirements.forEach(req => {
+            const icon = req.test ? '✅' : '❌';
+            const color = req.test ? 'text-success' : 'text-danger';
+            html += `<span class="${color}">${icon} ${req.text}</span><br>`;
+        });
+        html += '</small>';
+        
+        strengthDiv.innerHTML = html;
+    });
+    
     // 密码确认验证
     document.getElementById('confirmPassword').addEventListener('input', function() {
         const password = document.getElementById('password').value;
@@ -163,6 +202,22 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
         
+        // 客户端密码复杂度验证
+        const passwordRequirements = [
+            { test: password.length >= 8, message: '密码长度至少8个字符' },
+            { test: /[A-Z]/.test(password), message: '密码必须包含至少一个大写字母' },
+            { test: /[a-z]/.test(password), message: '密码必须包含至少一个小写字母' },
+            { test: /\d/.test(password), message: '密码必须包含至少一个数字' },
+            { test: /[!@#$%^&*(),.?":{}|<>]/.test(password), message: '密码必须包含至少一个特殊字符(!@#$%^&*(),.?":{}|<>)' }
+        ];
+        
+        for (let req of passwordRequirements) {
+            if (!req.test) {
+                showAlert(req.message, 'danger');
+                return;
+            }
+        }
+        
         const formData = {
             username: document.getElementById('username').value,
             email: document.getElementById('email').value,
@@ -184,7 +239,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.location.href = '/login';
                     }, 2000);
                 } else {
-                    showAlert(data.message, 'danger');
+                    showAlert(data.error || data.message || '注册失败', 'danger');
                 }
             })
             .catch(error => {

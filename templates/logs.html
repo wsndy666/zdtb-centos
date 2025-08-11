@@ -68,8 +68,8 @@
             <option value="创建项目">创建项目</option>
             <option value="更新项目">更新项目</option>
             <option value="删除项目">删除项目</option>
-            <option value="上传模板">上传模板</option>
-            <option value="删除模板">删除模板</option>
+            <option value="模板上传">模板上传</option>
+            <option value="模板删除">模板删除</option>
             <option value="生成文件">生成文件</option>
             <option value="导入数据">导入数据</option>
             <option value="导出数据">导出数据</option>
@@ -98,7 +98,7 @@
                 <th>时间</th>
                 <th>操作类型</th>
                 <th>操作详情</th>
-                <th>状态</th>
+                <th>操作用户</th>
                 <th>IP地址</th>
             </tr>
         </thead>
@@ -106,45 +106,37 @@
             {% if logs %}
                 {% for log in logs %}
                 <tr class="log-row" 
-                    data-operation="{{ log[1] }}" 
-                    data-date="{{ log[0][:10] }}" 
-                    data-details="{{ log[2].lower() }}">
+                    data-operation="{{ log[0] }}" 
+                    data-date="{{ log[3][:10] }}" 
+                    data-details="{{ log[1].lower() }}">
                     <td>
-                        <small class="text-muted">{{ log[0] }}</small>
+                        <small class="text-muted">{{ log[3] }}</small>
                     </td>
                     <td>
-                        {% if log[1] == '创建项目' %}
-                            <span class="badge bg-success">{{ log[1] }}</span>
-                        {% elif log[1] == '更新项目' %}
-                            <span class="badge bg-primary">{{ log[1] }}</span>
-                        {% elif log[1] == '删除项目' %}
-                            <span class="badge bg-danger">{{ log[1] }}</span>
-                        {% elif log[1] == '上传模板' %}
-                            <span class="badge bg-info">{{ log[1] }}</span>
-                        {% elif log[1] == '删除模板' %}
-                            <span class="badge bg-warning">{{ log[1] }}</span>
-                        {% elif log[1] == '生成文件' %}
-                            <span class="badge bg-secondary">{{ log[1] }}</span>
-                        {% elif log[1] == '导入数据' %}
-                            <span class="badge bg-dark">{{ log[1] }}</span>
-                        {% elif log[1] == '导出数据' %}
-                            <span class="badge bg-light text-dark">{{ log[1] }}</span>
+                        {% if log[0] == '创建项目' %}
+                            <span class="badge bg-success">{{ log[0] }}</span>
+                        {% elif log[0] == '更新项目' %}
+                            <span class="badge bg-primary">{{ log[0] }}</span>
+                        {% elif log[0] == '删除项目' %}
+                            <span class="badge bg-danger">{{ log[0] }}</span>
+                        {% elif log[0] == '模板上传' %}
+                            <span class="badge bg-info">{{ log[0] }}</span>
+                        {% elif log[0] == '模板删除' %}
+                            <span class="badge bg-warning">{{ log[0] }}</span>
+                        {% elif log[0] == '生成文件' %}
+                            <span class="badge bg-secondary">{{ log[0] }}</span>
+                        {% elif log[0] == '导入数据' %}
+                            <span class="badge bg-dark">{{ log[0] }}</span>
+                        {% elif log[0] == '导出数据' %}
+                            <span class="badge bg-light text-dark">{{ log[0] }}</span>
                         {% else %}
-                            <span class="badge bg-secondary">{{ log[1] }}</span>
+                            <span class="badge bg-secondary">{{ log[0] }}</span>
                         {% endif %}
                     </td>
+                    <td>{{ log[1] }}</td>
                     <td>{{ log[2] }}</td>
                     <td>
-                        {% if log[3] == 'success' %}
-                            <i class="bi bi-check-circle-fill text-success"></i> 成功
-                        {% elif log[3] == 'error' %}
-                            <i class="bi bi-x-circle-fill text-danger"></i> 失败
-                        {% else %}
-                            <i class="bi bi-info-circle-fill text-info"></i> {{ log[3] }}
-                        {% endif %}
-                    </td>
-                    <td>
-                        <code class="small">{{ log[4] or '127.0.0.1' }}</code>
+                        <code class="small">127.0.0.1</code>
                     </td>
                 </tr>
                 {% endfor %}
@@ -325,9 +317,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // 可以选择是否默认筛选今天的日志
     // document.getElementById('dateFilter').value = today;
     // filterLogs();
-    
-    // 加载日志统计信息
-    loadLogStats();
 });
 </script>
 {% endblock %}

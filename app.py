@@ -3,7 +3,7 @@ from werkzeug.utils import secure_filename
 import os
 import sqlite3
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 from docx import Document
 from openpyxl import load_workbook, Workbook
@@ -132,7 +132,9 @@ def init_db():
             file_path TEXT NOT NULL,
             file_type TEXT NOT NULL,
             variables_count INTEGER DEFAULT 0,
-            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            created_by INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users (id)
         )
     ''')
     
@@ -142,8 +144,10 @@ def init_db():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             contract_number TEXT,
+            created_by INTEGER,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (created_by) REFERENCES users (id)
         )
     ''')
     
@@ -291,7 +295,7 @@ def init_db():
         ''', ('admin', perm_id[0]))
     
     # 普通用户权限
-    user_permissions = ['view_variables', 'view_templates', 'view_projects', 'view_data']
+    user_permissions = ['view_variables', 'view_templates', 'view_projects', 'view_data', 'view_logs']
     for perm_name in user_permissions:
         cursor.execute('''
             INSERT OR IGNORE INTO role_permissions (role, permission_id)
@@ -356,26 +360,154 @@ def init_db():
             WHERE is_user_activated = 0 OR is_user_activated IS NULL
         ''', (activation_code, expire_date, user_info, activated_at))
     
+    # 数据库迁移：为现有项目表添加created_by字段
+    try:
+        cursor.execute("ALTER TABLE projects ADD COLUMN created_by INTEGER")
+        print('已为projects表添加created_by字段')
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    # 为现有项目设置默认创建者
+    try:
+        # 检查是否有项目的created_by字段为空
+        cursor.execute('SELECT COUNT(*) FROM projects WHERE created_by IS NULL')
+        null_count = cursor.fetchone()[0]
+        
+        if null_count > 0:
+            # 获取第一个管理员用户的ID作为默认创建者
+            cursor.execute('SELECT id FROM users WHERE role = "admin" LIMIT 1')
+            admin_user = cursor.fetchone()
+            
+            if admin_user:
+                admin_id = admin_user[0]
+                # 将所有created_by为空的项目设置为管理员创建
+                cursor.execute('UPDATE projects SET created_by = ? WHERE created_by IS NULL', (admin_id,))
+                print(f'已将 {null_count} 个项目的创建者设置为管理员用户')
+    except Exception as e:
+        print(f'数据库迁移警告: {e}')
+    
+    # 数据库迁移：为模板表添加created_by字段
+    try:
+        cursor.execute("ALTER TABLE templates ADD COLUMN created_by INTEGER")
+        print('已为templates表添加created_by字段')
+    except sqlite3.OperationalError:
+        pass  # 字段已存在
+    
+    # 数据库迁移：为现有模板设置默认创建者
+    try:
+        # 检查是否有模板的created_by字段为空
+        cursor.execute('SELECT COUNT(*) FROM templates WHERE created_by IS NULL')
+        null_template_count = cursor.fetchone()[0]
+        
+        if null_template_count > 0:
+            # 获取第一个管理员用户的ID作为默认创建者
+            cursor.execute('SELECT id FROM users WHERE role = "admin" LIMIT 1')
+            admin_user = cursor.fetchone()
+            
+            if admin_user:
+                admin_id = admin_user[0]
+                # 将所有created_by为空的模板设置为管理员创建
+                cursor.execute('UPDATE templates SET created_by = ? WHERE created_by IS NULL', (admin_id,))
+                print(f'已将 {null_template_count} 个模板的创建者设置为管理员用户')
+    except Exception as e:
+        print(f'模板数据库迁移警告: {e}')
+    
     conn.commit()
     conn.close()
 
-# 导入激活码验证模块（商业机密，不包含在开源版本中）
-try:
-    from activation_validator import ActivationValidator
-except ImportError:
-    # 如果激活码验证模块不存在，使用占位符类
-    class ActivationValidator:
-        def __init__(self, secret_key=None):
-            pass
+# 激活码验证类
+class ActivationValidator:
+    def __init__(self, secret_key="djzcm_2025_secret_key_v1.0"):
+        self.secret_key = secret_key.encode('utf-8')
+        self.version = "1.0"
+    
+    def generate_machine_id(self):
+        """生成机器标识符"""
+        import platform
+        import uuid
         
-        def generate_machine_id(self):
-            return "demo_machine_id"
+        system_info = {
+            'platform': platform.platform(),
+            'processor': platform.processor(),
+            'machine': platform.machine(),
+            'node': platform.node()
+        }
         
-        def verify_activation_code(self, activation_code, check_machine=True):
-            # 演示版本：总是返回失败
-            return False, None, "此功能需要完整版本"
-        
-        def get_activation_info(self, activation_code):
+        info_str = json.dumps(system_info, sort_keys=True)
+        machine_hash = hashlib.sha256(info_str.encode()).hexdigest()[:16]
+        return machine_hash
+    
+    def verify_activation_code(self, activation_code, check_machine=True):
+        """验证激活码（适配优化版本）"""
+        try:
+            clean_code = activation_code.replace('-', '')
+            
+            if '.' not in clean_code:
+                return False, None, "激活码格式错误"
+            
+            data_b64, signature = clean_code.rsplit('.', 1)
+            
+            # 验证签名（适配16位签名）
+            expected_signature = hmac.new(self.secret_key, data_b64.encode('utf-8'), hashlib.sha256).hexdigest()[:16]
+            if not hmac.compare_digest(signature, expected_signature):
+                return False, None, "激活码签名验证失败"
+            
+            # 解码数据
+            try:
+                data_json = base64.b64decode(data_b64).decode('utf-8')
+                activation_data = json.loads(data_json)
+            except Exception:
+                return False, None, "激活码数据解析失败"
+            
+            # 检查版本（适配新字段名）
+            if activation_data.get('v') != self.version:
+                return False, None, "激活码版本不匹配"
+            
+            # 检查过期时间（适配时间戳格式）
+            expire_timestamp = activation_data.get('exp')
+            if not expire_timestamp:
+                return False, None, "激活码缺少过期时间"
+            
+            expire_date = datetime.fromtimestamp(expire_timestamp)
+            if datetime.now() > expire_date:
+                return False, None, f"激活码已过期（过期时间：{expire_date.strftime('%Y-%m-%d %H:%M:%S')}）"
+            
+            # 检查机器绑定（适配新字段名）
+            if check_machine and activation_data.get('m', False):
+                current_machine_id = self.generate_machine_id()[:8]  # 匹配缩短的机器ID
+                if activation_data.get('mid') != current_machine_id:
+                    return False, None, "激活码与当前机器不匹配"
+            
+            # 转换为标准格式以保持兼容性
+            standard_data = {
+                'version': activation_data.get('v'),
+                'expire_date': expire_date.isoformat(),
+                'days_valid': activation_data.get('d'),
+                'user_info': activation_data.get('u', ''),
+                'machine_binding': activation_data.get('m', False),
+                'random_salt': activation_data.get('s')
+            }
+            if activation_data.get('mid'):
+                standard_data['machine_id'] = activation_data['mid']
+            
+            return True, standard_data, "激活码验证成功"
+            
+        except Exception as e:
+            return False, None, f"验证过程中发生错误：{str(e)}"
+    
+    def get_activation_info(self, activation_code):
+        """获取激活码信息（不验证有效性）"""
+        try:
+            clean_code = activation_code.replace('-', '')
+            if '.' not in clean_code:
+                return None
+            
+            data_b64, _ = clean_code.rsplit('.', 1)
+            data_json = base64.b64decode(data_b64).decode('utf-8')
+            activation_data = json.loads(data_json)
+            
+            return activation_data
+        except Exception:
             return None
 
 # 全局激活验证器实例
@@ -911,16 +1043,32 @@ def index():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 获取所有项目
-    cursor.execute('''
-        SELECT p.id, p.name, p.contract_number, p.updated_at,
-               COUNT(DISTINCT tv.variable_name) as template_count
-        FROM projects p
-        LEFT JOIN project_data pd ON p.id = pd.project_id
-        LEFT JOIN template_variables tv ON tv.variable_name = pd.variable_name
-        GROUP BY p.id
-        ORDER BY p.updated_at DESC
-    ''')
+    current_user_id = session.get('user_id')
+    current_user_role = session.get('role')
+    
+    # 管理员可以查看所有项目，普通用户只能查看自己创建的项目
+    if current_user_role == 'admin':
+        cursor.execute('''
+            SELECT p.id, p.name, p.contract_number, p.updated_at,
+                   COUNT(DISTINCT tv.variable_name) as template_count
+            FROM projects p
+            LEFT JOIN project_data pd ON p.id = pd.project_id
+            LEFT JOIN template_variables tv ON tv.variable_name = pd.variable_name
+            GROUP BY p.id
+            ORDER BY p.updated_at DESC
+        ''')
+    else:
+        cursor.execute('''
+            SELECT p.id, p.name, p.contract_number, p.updated_at,
+                   COUNT(DISTINCT tv.variable_name) as template_count
+            FROM projects p
+            LEFT JOIN project_data pd ON p.id = pd.project_id
+            LEFT JOIN template_variables tv ON tv.variable_name = pd.variable_name
+            WHERE p.created_by = ?
+            GROUP BY p.id
+            ORDER BY p.updated_at DESC
+        ''', (current_user_id,))
+    
     projects = cursor.fetchall()
     
     conn.close()
@@ -934,11 +1082,27 @@ def templates():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT id, name, filename, file_type, variables_count, created_at
-        FROM templates
-        ORDER BY created_at DESC
-    ''')
+    current_user_id = session.get('user_id')
+    current_user_role = session.get('role')
+    
+    if current_user_role == 'admin':
+        # 管理员可以查看所有模板，并显示创建者信息
+        cursor.execute('''
+            SELECT t.id, t.name, t.filename, t.file_type, t.variables_count, t.created_at,
+                   u.username as creator_name
+            FROM templates t
+            LEFT JOIN users u ON t.created_by = u.id
+            ORDER BY t.created_at DESC
+        ''')
+    else:
+        # 普通用户只能查看自己创建的模板
+        cursor.execute('''
+            SELECT id, name, filename, file_type, variables_count, created_at, NULL as creator_name
+            FROM templates
+            WHERE created_by = ?
+            ORDER BY created_at DESC
+        ''', (current_user_id,))
+    
     templates = cursor.fetchall()
     
     conn.close()
@@ -989,10 +1153,11 @@ def upload_template():
         
         # 插入模板记录（使用本地时间）
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_user_id = session.get('user_id')
         cursor.execute('''
-            INSERT INTO templates (name, filename, file_path, file_type, variables_count, created_at)
-            VALUES (?, ?, ?, ?, ?, ?)
-        ''', (template_name or original_filename, safe_filename, file_path, file_ext, len(variables), current_time))
+            INSERT INTO templates (name, filename, file_path, file_type, variables_count, created_by, created_at)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ''', (template_name or original_filename, safe_filename, file_path, file_ext, len(variables), current_user_id, current_time))
         
         template_id = cursor.lastrowid
         
@@ -1302,15 +1467,36 @@ def projects():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    cursor.execute('''
-        SELECT p.id, p.name, p.contract_number, p.created_at,
-               COUNT(DISTINCT tv.template_id) as template_count
-        FROM projects p
-        LEFT JOIN project_data pd ON p.id = pd.project_id
-        LEFT JOIN template_variables tv ON pd.variable_name = tv.variable_name
-        GROUP BY p.id, p.name, p.contract_number, p.created_at
-        ORDER BY p.created_at DESC
-    ''')
+    current_user_id = session.get('user_id')
+    current_user_role = session.get('role')
+    
+    # 管理员可以查看所有项目，普通用户只能查看自己创建的项目
+    if current_user_role == 'admin':
+        cursor.execute('''
+            SELECT p.id, p.name, p.contract_number, p.created_at,
+                   COUNT(DISTINCT tv.template_id) as template_count,
+                   u.username as creator_name
+            FROM projects p
+            LEFT JOIN project_data pd ON p.id = pd.project_id
+            LEFT JOIN template_variables tv ON pd.variable_name = tv.variable_name
+            LEFT JOIN users u ON p.created_by = u.id
+            GROUP BY p.id, p.name, p.contract_number, p.created_at, u.username
+            ORDER BY p.created_at DESC
+        ''')
+    else:
+        cursor.execute('''
+            SELECT p.id, p.name, p.contract_number, p.created_at,
+                   COUNT(DISTINCT tv.template_id) as template_count,
+                   u.username as creator_name
+            FROM projects p
+            LEFT JOIN project_data pd ON p.id = pd.project_id
+            LEFT JOIN template_variables tv ON pd.variable_name = tv.variable_name
+            LEFT JOIN users u ON p.created_by = u.id
+            WHERE p.created_by = ?
+            GROUP BY p.id, p.name, p.contract_number, p.created_at, u.username
+            ORDER BY p.created_at DESC
+        ''', (current_user_id,))
+    
     projects = cursor.fetchall()
     
     conn.close()
@@ -1751,20 +1937,28 @@ def download_data_template(template_id):
 
 # 删除模板API
 @app.route('/delete_template/<int:template_id>', methods=['DELETE'])
+@login_required
 @trial_limit(max_count=5, feature_name="模板删除")
 def delete_template(template_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 获取模板信息
-    cursor.execute('SELECT name, filename, file_path FROM templates WHERE id = ?', (template_id,))
+    # 获取模板信息和创建者
+    cursor.execute('SELECT name, filename, file_path, created_by FROM templates WHERE id = ?', (template_id,))
     template = cursor.fetchone()
     
     if not template:
         conn.close()
         return jsonify({'success': False, 'message': '模板不存在'})
     
-    template_name, filename, file_path = template
+    template_name, filename, file_path, created_by = template
+    current_user_id = session.get('user_id')
+    user_role = session.get('role')
+    
+    # 权限检查：普通用户只能删除自己创建的模板，管理员可以删除所有模板
+    if user_role != 'admin' and created_by != current_user_id:
+        conn.close()
+        return jsonify({'success': False, 'message': '您只能删除自己创建的模板'})
     
     # 检查是否有项目正在使用该模板
     cursor.execute('''
@@ -1839,10 +2033,11 @@ def create_project():
         
         # 插入项目基本信息（使用本地时间）
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+        current_user_id = session.get('user_id')
         cursor.execute('''
-            INSERT INTO projects (name, contract_number, created_at, updated_at)
-            VALUES (?, ?, ?, ?)
-        ''', (name, contract_number, current_time, current_time))
+            INSERT INTO projects (name, contract_number, created_by, created_at, updated_at)
+            VALUES (?, ?, ?, ?, ?)
+        ''', (name, contract_number, current_user_id, current_time, current_time))
         
         project_id = cursor.lastrowid
         
@@ -1860,7 +2055,7 @@ def create_project():
         conn.close()
         
         # 记录日志
-        log_operation('CREATE_PROJECT', f'创建项目: {name}')
+        log_operation('创建项目', f'创建项目: {name}')
         
         return jsonify({'success': True, 'message': '项目创建成功', 'project_id': project_id})
         
@@ -1869,9 +2064,13 @@ def create_project():
 
 # 获取项目详情
 @app.route('/project/<int:project_id>')
+@login_required
 def get_project(project_id):
     conn = get_db_connection()
     cursor = conn.cursor()
+    
+    current_user_id = session.get('user_id')
+    current_user_role = session.get('role')
     
     # 获取项目基本信息
     cursor.execute('SELECT * FROM projects WHERE id = ?', (project_id,))
@@ -1879,6 +2078,10 @@ def get_project(project_id):
     
     if not project:
         return jsonify({'success': False, 'message': '项目不存在'})
+    
+    # 检查权限：普通用户只能查看自己创建的项目
+    if current_user_role != 'admin' and project[3] != current_user_id:  # project[3] 是 created_by 字段
+        return jsonify({'success': False, 'message': '无权限访问此项目'})
     
     # 获取项目数据
     cursor.execute('''
@@ -1896,12 +2099,13 @@ def get_project(project_id):
             'id': project[0],
             'name': project[1],
             'contract_number': project[2],
-            'created_at': project[3],
+            'created_at': project[4],  # 调整索引，因为添加了created_by字段
             'data': project_data
         }
     })
 
 @app.route('/update_project/<int:project_id>', methods=['POST'])
+@login_required
 @trial_limit(max_count=15, feature_name="项目更新")
 def update_project(project_id):
     try:
@@ -1916,11 +2120,20 @@ def update_project(project_id):
         conn = get_db_connection()
         cursor = conn.cursor()
         
-        # 检查项目是否存在
-        cursor.execute('SELECT id FROM projects WHERE id = ?', (project_id,))
-        if not cursor.fetchone():
+        current_user_id = session.get('user_id')
+        current_user_role = session.get('role')
+        
+        # 检查项目是否存在并获取创建者信息
+        cursor.execute('SELECT id, created_by FROM projects WHERE id = ?', (project_id,))
+        project = cursor.fetchone()
+        if not project:
             conn.close()
             return jsonify({'success': False, 'message': '项目不存在'})
+        
+        # 检查权限：普通用户只能更新自己创建的项目
+        if current_user_role != 'admin' and project[1] != current_user_id:
+            conn.close()
+            return jsonify({'success': False, 'message': '无权限修改此项目'})
         
         # 更新项目基本信息（使用本地时间）
         current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -2056,18 +2269,27 @@ def get_templates_for_project(project_id):
 
 # 删除项目API
 @app.route('/delete_project/<int:project_id>', methods=['DELETE'])
+@login_required
 @trial_limit(max_count=5, feature_name="项目删除")
 def delete_project(project_id):
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 检查项目是否存在
-    cursor.execute('SELECT id, name FROM projects WHERE id = ?', (project_id,))
+    current_user_id = session.get('user_id')
+    current_user_role = session.get('role')
+    
+    # 检查项目是否存在并获取创建者信息
+    cursor.execute('SELECT id, name, created_by FROM projects WHERE id = ?', (project_id,))
     project = cursor.fetchone()
     
     if not project:
         conn.close()
         return jsonify({'success': False, 'message': '项目不存在'})
+    
+    # 检查权限：普通用户只能删除自己创建的项目
+    if current_user_role != 'admin' and project[2] != current_user_id:
+        conn.close()
+        return jsonify({'success': False, 'message': '无权限删除此项目'})
     
     project_name = project[1]
     
@@ -2111,6 +2333,7 @@ def delete_project(project_id):
 
 # 生成文件
 @app.route('/generate_file', methods=['POST'])
+@login_required
 @trial_limit(max_count=20, feature_name="文件生成")
 def generate_file():
     data = request.get_json()
@@ -2121,11 +2344,18 @@ def generate_file():
     conn = get_db_connection()
     cursor = conn.cursor()
     
-    # 获取项目信息
-    cursor.execute('SELECT name, contract_number FROM projects WHERE id = ?', (project_id,))
+    current_user_id = session.get('user_id')
+    current_user_role = session.get('role')
+    
+    # 获取项目信息并检查权限
+    cursor.execute('SELECT name, contract_number, created_by FROM projects WHERE id = ?', (project_id,))
     project = cursor.fetchone()
     if not project:
         return jsonify({'success': False, 'message': '项目不存在'})
+    
+    # 检查权限：普通用户只能为自己创建的项目生成文件
+    if current_user_role != 'admin' and project[2] != current_user_id:
+        return jsonify({'success': False, 'message': '无权限为此项目生成文件'})
     
     # 获取模板信息
     cursor.execute('SELECT name, file_path, file_type FROM templates WHERE id = ?', (template_id,))

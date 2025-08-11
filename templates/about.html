@@ -175,7 +175,7 @@
                     <div class="card shadow-sm">
                         <div class="card-header bg-warning text-dark">
                             <h5 class="mb-0">
-                                <i class="bi bi-key me-2"></i>账号激活状态
+                                <i class="bi bi-key me-2"></i>软件激活状态
                             </h5>
                         </div>
                         <div class="card-body">
@@ -183,7 +183,7 @@
                                 {% if activation_status.activated %}
                                     <div class="alert alert-success" role="alert">
                                         <h6 class="alert-heading">
-                                            <i class="bi bi-check-circle me-2"></i>账号已激活
+                                            <i class="bi bi-check-circle me-2"></i>软件已激活
                                         </h6>
                                         <p class="mb-2">
                                             <strong>用户信息：</strong>{{ activation_status.user_info or '未知用户' }}<br>
@@ -194,16 +194,16 @@
                                             <hr>
                                             <p class="mb-0 text-warning">
                                                 <i class="bi bi-exclamation-triangle me-1"></i>
-                                                账号即将到期，请及时续费！
+                                                软件即将到期，请及时续费！
                                             </p>
                                         {% endif %}
                                     </div>
                                 {% else %}
                                     <div class="alert alert-danger" role="alert">
                                         <h6 class="alert-heading">
-                                            <i class="bi bi-x-circle me-2"></i>账号未激活
+                                            <i class="bi bi-x-circle me-2"></i>软件未激活
                                         </h6>
-                                        <p class="mb-3">请输入有效的激活码来激活您的账号。</p>
+                                        <p class="mb-3">请输入有效的激活码来激活软件。</p>
                                         
                                         <div class="row">
                                             <div class="col-md-8">
@@ -234,10 +234,10 @@
                                     <i class="bi bi-info-circle me-2"></i>激活说明
                                 </h6>
                                 <ul class="list-unstyled small text-muted">
-                                    <li><i class="bi bi-dot"></i> 激活码用于验证账号的合法使用权限</li>
-                                    <li><i class="bi bi-dot"></i> 每个激活码只能绑定一个账号，请妥善保管</li>
+                                    <li><i class="bi bi-dot"></i> 激活码用于验证软件的合法使用权限</li>
+                                    <li><i class="bi bi-dot"></i> 每个激活码只能使用一次，请妥善保管</li>
                                     <li><i class="bi bi-dot"></i> 如需购买或续费激活码，请联系技术支持</li>
-                                    <li><i class="bi bi-dot"></i> 激活码到期后，账号功能将受到限制</li>
+                                    <li><i class="bi bi-dot"></i> 激活码到期后，软件功能将受到限制</li>
                                 </ul>
                             </div>
                         </div>
