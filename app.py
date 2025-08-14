@@ -2679,11 +2679,13 @@ def import_data():
                 project_name = row.get('填报项目名称', row.get('系统项目名称', row.get('项目名称', f'导入项目{index+1}')))
                 contract_number = row.get('备注说明', row.get('系统合同编号', row.get('合同编号', '')))
                 
-                # 插入项目
+                # 插入项目（添加创建者和时间信息）
+                current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                current_user_id = session.get('user_id')
                 cursor.execute('''
-                    INSERT INTO projects (name, contract_number)
-                    VALUES (?, ?)
-                ''', (project_name, contract_number))
+                    INSERT INTO projects (name, contract_number, created_by, created_at, updated_at)
+                    VALUES (?, ?, ?, ?, ?)
+                ''', (project_name, contract_number, current_user_id, current_time, current_time))
                 
                 project_id = cursor.lastrowid
                 
